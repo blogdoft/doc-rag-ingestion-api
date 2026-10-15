@@ -1,0 +1,13 @@
+bin/
+obj/
+*.user
+*.suo
+[Tt]est[Rr]esult*/
+*.trx
+.vs/
+.vscode/
+.idea/
+.DS_Store
+.env
+.claude/settings.local.json
+doc-rag-ingestion-api-spec.zip

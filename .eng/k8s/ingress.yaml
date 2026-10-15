@@ -1,0 +1,36 @@
+# Traefik ingress, served under the shared blogdoft.home.arpa host at /code-brain/doc-rag. The
+# prefix is stripped by the strip-prefix Middleware (middleware.yaml) before forwarding, since the
+# API routes are rooted at "api/v1/..." and "swagger". PublicBaseUrl (configmap.yaml) tells the
+# app about the prefix so the OpenAPI "servers" entry and Swagger UI redirects include it.
+# Format for router.middlewares: <namespace>-<middleware-name>@kubernetescrd; the namespace must
+# match the one the ArgoCD application deploys into (code-brain).
+#
+# Traefik ingress. Uploads stream up to Upload:MaxBytes (1 GiB): no buffering middleware is
+# attached on purpose, so request bodies are not held in memory by the proxy.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: doc-rag-ingestion-api
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: "websecure"
+    traefik.ingress.kubernetes.io/router.tls: "true"
+    traefik.ingress.kubernetes.io/router.middlewares: code-brain-doc-rag-ingestion-api-strip-prefix@kubernetescrd
+spec:
+  ingressClassName: traefik
+  # Certificate requested by code-rag-front's Ingress (cert-manager); no annotation here on
+  # purpose, so several Ingresses do not fight over the same secret.
+  tls:
+    - hosts:
+        - blogdoft.home.arpa
+      secretName: blogdoft-tls
+  rules:
+    - host: blogdoft.home.arpa
+      http:
+        paths:
+          - path: /code-brain/doc-rag
+            pathType: Prefix
+            backend:
+              service:
+                name: doc-rag-ingestion-api
+                port:
+                  name: http

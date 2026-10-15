@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: doc-rag-ingestion-api
+  labels:
+    app: doc-rag-ingestion-api
+spec:
+  replicas: 1
+  revisionHistoryLimit: 1
+  selector:
+    matchLabels:
+      app: doc-rag-ingestion-api
+  template:
+    metadata:
+      labels:
+        app: doc-rag-ingestion-api
+    spec:
+      containers:
+        - name: doc-rag-ingestion-api
+          # Name/tag stamped by docker-publish.yml (kustomize edit set image).
+          image: doc-rag-ingestion-api
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: doc-rag-ingestion-config
+          env:
+            - name: OTEL_SERVICE_NAME
+              value: "doc-rag-ingestion-api"
+            - name: ConnectionStrings__Postgres
+              valueFrom:
+                secretKeyRef:
+                  name: doc-rag-ingestion-secrets
+                  key: connection-string
+            - name: Garage__AccessKey
+              valueFrom:
+                secretKeyRef:
+                  name: doc-rag-ingestion-garage-secrets
+                  key: access-key
+            - name: Garage__SecretKey
+              valueFrom:
+                secretKeyRef:
+                  name: doc-rag-ingestion-garage-secrets
+                  key: secret-key
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 60
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi

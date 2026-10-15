@@ -1,0 +1,18 @@
+{
+  "eventId": "01a13da1-821e-7429-9765-742845dfb830",
+  "eventType": "DocumentUploaded",
+  "eventVersion": 1,
+  "occurredAt": "2026-10-15T03:35:57.214Z",
+  "correlationId": "c1472504688b62133e0217241242dd05",
+  "documentId": "01a13da1-8017-7e9a-9d33-8921c93182e5",
+  "versionId": "01a13da1-8187-71dc-95cd-12c381925abd",
+  "fileId": "01a13da1-81e5-7728-aa33-58121f374f2e",
+  "contentType": "application/pdf",
+  "sizeBytes": 1048576,
+  "sha256": "40c3df9a0bb535740f314b1500310a2eba87297e680f563c63d1ba8c9738ab86",
+  "storage": {
+    "provider": "garage-s3",
+    "bucket": "doc-rag-originals",
+    "objectKey": "acme/01a13da1-8017-7e9a-9d33-8921c93182e5/01a13da1-8187-71dc-95cd-12c381925abd/01a13da1-81e5-7728-aa33-58121f374f2e"
+  }
+}

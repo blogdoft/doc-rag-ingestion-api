@@ -1,0 +1,26 @@
+# Non-secret settings shared by the API and the worker. Secrets live in two Secrets that are not
+# managed in this repo (create them once in the target namespace):
+#   doc-rag-ingestion-secrets        key "connection-string" (Npgsql connection string)
+#   doc-rag-ingestion-garage-secrets keys "access-key" and "secret-key"
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: doc-rag-ingestion-config
+data:
+  ASPNETCORE_URLS: "http://+:8080"
+  ASPNETCORE_ENVIRONMENT: "Production"
+  # Externally reachable base URL (behind the Traefik prefix strip): used for the OpenAPI "servers"
+  # entry and Swagger UI redirects. Leave unset locally.
+  PublicBaseUrl: "https://blogdoft.home.arpa/code-brain/doc-rag"
+  Garage__ServiceUrl: "http://garage.garage.svc.cluster.local:3900"
+  Garage__Region: "garage"
+  Garage__Bucket: "doc-rag-originals"
+  Auth__Authority: "https://keycloak.home.arpa/realms/blogdoft"
+  Auth__Audience: "doc-rag-ingestion"
+  Kafka__BootstrapServers: "kafka.kafka.svc.cluster.local:9092"
+  Kafka__SecurityProtocol: "Plaintext"
+  Observability__OpenTelemetry__UseTracingExporter: "Otlp"
+  Observability__OpenTelemetry__UseMetricsExporter: "DoNotUse"
+  Observability__OpenTelemetry__UseLogExporter: "DoNotUse"
+  Observability__OtlpExporterOptions__Endpoint: "http://otel-collector.observability.svc.cluster.local:4318/v1/traces"
+  Observability__OtlpExporterOptions__Protocol: "HttpProtobuf"

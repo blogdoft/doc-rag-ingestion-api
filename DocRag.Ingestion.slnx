@@ -1,0 +1,15 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/DocRag.Ingestion.Api/DocRag.Ingestion.Api.csproj" />
+    <Project Path="src/DocRag.Ingestion.Application/DocRag.Ingestion.Application.csproj" />
+    <Project Path="src/DocRag.Ingestion.Domain/DocRag.Ingestion.Domain.csproj" />
+    <Project Path="src/DocRag.Ingestion.Infrastructure/DocRag.Ingestion.Infrastructure.csproj" />
+    <Project Path="src/DocRag.Ingestion.Worker/DocRag.Ingestion.Worker.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/DocRag.Ingestion.Api.Tests/DocRag.Ingestion.Api.Tests.csproj" />
+    <Project Path="tests/DocRag.Ingestion.Application.Tests/DocRag.Ingestion.Application.Tests.csproj" />
+    <Project Path="tests/DocRag.Ingestion.Domain.Tests/DocRag.Ingestion.Domain.Tests.csproj" />
+    <Project Path="tests/DocRag.Ingestion.Infrastructure.Tests/DocRag.Ingestion.Infrastructure.Tests.csproj" />
+  </Folder>
+</Solution>

@@ -1,0 +1,26 @@
+<Project>
+
+  <!--
+    Centralizes the code-quality analyzer packages and the shared stylecop.json every project in
+    this repo used to reference individually. MSBuild imports this file automatically for every
+    project under this directory - no per-csproj wiring needed. Package versions are pinned here
+    only (never per-project) so every project always analyzes with the exact same ruleset.
+  -->
+  <ItemGroup>
+    <PackageReference Include="Roslynator.Analyzers" Version="5.0.0" />
+    <PackageReference Include="Roslynator.CodeFixes" Version="5.0.0" />
+    <PackageReference Include="Roslynator.Formatting.Analyzers" Version="5.0.0" />
+    <!-- Pre-release: 1.1.118 (the last stable release) predates net9.0/net10.0 and mis-analyzes
+         some positional-record/collection-expression syntax (the recurring
+         "RecordDeclaration key not found" SA1201 analyzer exception seen across this repo's
+         builds) - the 1.2.0 beta line targets modern C#/.NET and is the closest thing to a fix
+         upstream has published so far. -->
+    <PackageReference Include="StyleCop.Analyzers" Version="1.2.0-beta.556" />
+    <PackageReference Include="SonarAnalyzer.CSharp" Version="10.34.0.3385" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AdditionalFiles Include="$(MSBuildThisFileDirectory)stylecop.json" />
+  </ItemGroup>
+
+</Project>

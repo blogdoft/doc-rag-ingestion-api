@@ -1,0 +1,21 @@
+# Not applied directly: docker-publish.yml stamps the real image names/tags onto it
+# (kustomize edit set image) and copies the result into manifests/doc-rag/doc-rag-ingestion-api/
+# in the argo-local-apps GitOps repo. ArgoCD then renders it with kustomize from there.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - configmap.yaml
+  - api-deployment.yaml
+  - api-service.yaml
+  - ingress.yaml
+  - middleware.yaml
+  - worker-deployment.yaml
+
+images:
+  - name: doc-rag-ingestion-api
+    newName: REGISTRY_PLACEHOLDER/doc-rag-ingestion-api
+    newTag: unset
+  - name: doc-rag-ingestion-worker
+    newName: REGISTRY_PLACEHOLDER/doc-rag-ingestion-worker
+    newTag: unset

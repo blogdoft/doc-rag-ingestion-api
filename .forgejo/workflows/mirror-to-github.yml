@@ -1,0 +1,80 @@
+# Mirrors this repository to GitHub once a day (all branches and tags, deleting on the
+# GitHub side anything removed here). Runs daily at 20:00 America/Sao_Paulo time (23:00
+# UTC - Brazil has had no DST since 2019) via a cron schedule instead of on every push.
+# Requires a Forgejo repo secret configured in Settings > Actions > Secrets:
+#   MIRROR_GITHUB_TOKEN - a GitHub Personal Access Token (classic, "repo" scope, or
+#   fine-grained with "Contents: read and write") for an account with push access to
+#   https://github.com/blogdoft/doc-rag-ingestion-api.
+name: Mirror to GitHub
+
+on:
+  # Do not restrict branches or tags: the mirror must reflect every ref.
+  push:
+  schedule:
+    - cron: "0 20 * * *"
+      timezone: America/Sao_Paulo
+
+# Guards against overlapping runs (e.g. a manual re-run while the scheduled run is still in
+# progress) racing on the same working directory's refs. Each run mirrors the full current
+# state of origin, so it's safe (and more efficient) to drop a still-running, now-stale run
+# in favor of the newest.
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
+jobs:
+  mirror:
+    runs-on: ubuntu
+    steps:
+      # There is no time-of-day predicate among Forgejo's workflow expressions. Decide
+      # it on the runner, then skip the expensive checkout/fetch/push steps for daytime
+      # push events. A scheduled invocation always mirrors the accumulated daytime work.
+      - name: Decide whether this run is in the mirroring window
+        id: window
+        run: |
+          if [ "$FORGEJO_EVENT_NAME" = "schedule" ]; then
+            mirror=true
+          else
+            hour=$(TZ=America/Sao_Paulo date +%H)
+            case "$hour" in
+              20|21|22|23|00|01|02|03|04|05|06) mirror=true ;;
+              *) mirror=false ;;
+            esac
+          fi
+          echo "mirror=$mirror" >> "$FORGEJO_OUTPUT"
+          echo "Mirror enabled: $mirror"
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch all branches and tags
+        run: |
+          git fetch origin --prune '+refs/heads/*:refs/remotes/origin/*' '+refs/tags/*:refs/tags/*'
+          git update-ref -d refs/remotes/origin/HEAD 2>/dev/null || true
+
+      # The token is kept out of the push URL/argv on purpose: embedding it as
+      # `x-access-token:$TOKEN@github.com` would put the literal secret into
+      # this step's process arguments (visible via `ps`/`/proc/<pid>/cmdline`
+      # on the runner while the command runs) and into the generated step
+      # script on disk. Feeding it to git via an env var + inline credential
+      # helper instead means the push URL and script text never contain the
+      # secret value - the same rationale as the `http.extraHeader` auth
+      # actions/checkout already uses for the Forgejo origin above.
+      #
+      # The retry below clears a transient push failure (e.g. a network hiccup or a GitHub
+      # API blip) without masking a genuine push failure, which fails both attempts
+      # identically.
+      - name: Push mirror to GitHub
+        env:
+          MIRROR_GITHUB_TOKEN: ${{ secrets.MIRROR_GITHUB_TOKEN }}
+        run: |
+          for attempt in 1 2; do
+            git -c credential.helper='!f() { echo "username=x-access-token"; echo "password=$MIRROR_GITHUB_TOKEN"; }; f' \
+              push --prune https://github.com/blogdoft/doc-rag-ingestion-api.git \
+              "+refs/remotes/origin/*:refs/heads/*" \
+              "+refs/tags/*:refs/tags/*" && exit 0
+            echo "::warning::push to GitHub mirror failed (attempt $attempt/2) - retrying in case this is a transient failure"
+          done
+          exit 1

@@ -1,0 +1,927 @@
+openapi: 3.1.0
+info:
+  title: Doc RAG Ingestion API
+  version: 1.0.0
+  summary: Cadastro documental, versionamento e recebimento seguro de arquivos por streaming.
+  description: 'API responsável exclusivamente pela ingestão de documentos da plataforma Doc RAG.
+
+
+    **Fluxo recomendado**
+
+    1. Crie um documento (`POST /documents`).
+
+    2. Crie uma versão (`POST /documents/{documentId}/versions`).
+
+    3. Envie o arquivo original como corpo binário (`POST /documents/{documentId}/versions/{versionId}/files`).
+
+    4. Consulte a versão até que o upload esteja concluído.
+
+
+    Os bytes são transmitidos em streaming e armazenados no Garage (API S3).
+
+    Metadados e estados persistem em PostgreSQL. Um evento `DocumentUploaded`
+
+    é publicado no Kafka via Transactional Outbox após o commit da ingestão.
+
+
+    **Semântica do sucesso:** `201` no upload significa arquivo persistido e
+
+    metadados confirmados; não significa conversão, chunking ou indexação.
+
+    O evento Kafka é publicado de forma assíncrona e pode ser entregue mais de uma vez.
+
+
+    **Autorização:** Bearer JWT com os escopos `ingestion:read` e `ingestion:write`.
+
+
+    **Idempotência:** operações POST aceitam `Idempotency-Key`; a mesma chave com
+
+    o mesmo payload deve reproduzir o resultado anterior, enquanto payload divergente
+
+    gera `409`. Chaves são escopadas por operação.
+
+    '
+  contact:
+    name: Doc RAG Platform Team
+  license:
+    name: Internal API Contract
+servers:
+- url: https://ingestion.example.com/api/v1
+  description: Exemplo de produção (substituir pela URL real)
+- url: http://localhost:8080/api/v1
+  description: Desenvolvimento local
+tags:
+- name: Documents
+  description: Identidade lógica e metadados do documento, independentes de versões e arquivos.
+- name: Versions
+  description: Edições imutáveis do ponto de vista editorial; dados administrativos podem ser atualizados por operações
+    explícitas.
+- name: Files
+  description: Recebimento binário via streaming, validação e armazenamento em Garage.
+security:
+- bearerAuth: []
+paths:
+  /documents:
+    post:
+      tags:
+      - Documents
+      operationId: createDocument
+      summary: Cadastrar documento
+      description: 'Cria a identidade lógica de um documento. Não cria automaticamente uma versão.
+
+        `metadata` permite campos específicos por categoria, mas não deve conter segredos.
+
+        O ID é gerado pelo servidor. Responde `201` com o recurso criado.
+
+        '
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/CorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDocumentRequest'
+            examples:
+              cte:
+                summary: Manual fiscal brasileiro
+                value:
+                  title: Manual de Orientações do Contribuinte - CT-e
+                  description: Manual técnico de orientação do CT-e
+                  type: fiscal-manual
+                  language: pt-BR
+                  tags:
+                  - cte
+                  - sefaz
+                  - documento-fiscal
+                  metadata:
+                    publisher: ENCAT
+                    jurisdiction: BR
+                    documentModel: '57'
+      responses:
+        '201':
+          description: Documento cadastrado; `Location` aponta para consulta.
+          headers:
+            Location:
+              $ref: '#/components/headers/Location'
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Document'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    get:
+      tags:
+      - Documents
+      operationId: listDocuments
+      summary: Listar documentos
+      description: 'Retorna os documentos ordenados por criação decrescente, com paginação
+        por cursor opaco. `type`, `language` e `tag` são filtros opcionais de igualdade e `title` é uma busca com wildcard `*`; todos combinam com AND.
+        Não inclui versões nem arquivos.
+
+        '
+      parameters:
+      - name: type
+        in: query
+        description: Somente documentos desta categoria.
+        schema:
+          type: string
+      - name: language
+        in: query
+        description: Somente documentos neste idioma (BCP 47).
+        schema:
+          type: string
+      - name: tag
+        in: query
+        description: Somente documentos que possuam esta tag.
+        schema:
+          type: string
+      - name: title
+        in: query
+        description: 'Busca no título, sem diferenciar maiúsculas de minúsculas, com no máximo 300 caracteres.
+          `*` representa qualquer sequência de caracteres: `manual*` começa com, `*cte` termina com,
+          `*fiscal*` contém. Sem nenhum `*`, o texto deve ser igual ao título inteiro. Os demais
+          caracteres são literais.'
+        schema:
+          type: string
+          maxLength: 300
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: Página de documentos.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /documents/{documentId}:
+    parameters:
+    - $ref: '#/components/parameters/DocumentId'
+    get:
+      tags:
+      - Documents
+      operationId: getDocument
+      summary: Consultar documento
+      description: Recupera o cadastro lógico do documento, sem incluir bytes ou versões completas.
+      responses:
+        '200':
+          description: Documento encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Document'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      tags:
+      - Documents
+      operationId: updateDocument
+      summary: Atualizar metadados de documento
+      description: 'Atualização parcial com JSON Merge Patch (RFC 7396).
+
+        Campos omitidos permanecem inalterados; `null` remove propriedades opcionais.
+
+        `If-Match` exige o ETag atual para impedir perda de atualização concorrente.
+
+        Não altera versões ou arquivos já recebidos.
+
+        '
+      parameters:
+      - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/merge-patch+json:
+            schema:
+              $ref: '#/components/schemas/PatchDocumentRequest'
+            example:
+              description: Manual atualizado
+              tags:
+              - cte
+              - sefaz
+      responses:
+        '200':
+          description: Documento atualizado.
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Document'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+  /documents/{documentId}/versions:
+    parameters:
+    - $ref: '#/components/parameters/DocumentId'
+    post:
+      tags:
+      - Versions
+      operationId: createDocumentVersion
+      summary: Cadastrar versão documental
+      description: 'Registra uma edição identificada por `label`, como `4.00`.
+
+        A combinação (documento, label) é única. Inicialmente a versão
+
+        fica em `awaiting_upload`. Datas de vigência não devem ser inferidas.
+
+        '
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateVersionRequest'
+            example:
+              label: '4.00'
+              publishedAt: null
+              effectiveFrom: null
+              effectiveTo: null
+      responses:
+        '201':
+          description: Versão criada.
+          headers:
+            Location:
+              $ref: '#/components/headers/Location'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentVersion'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+    get:
+      tags:
+      - Versions
+      operationId: listDocumentVersions
+      summary: Listar versões
+      description: Retorna versões ordenadas por criação decrescente, com paginação por cursor opaco.
+      parameters:
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: Página de versões.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VersionPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /documents/{documentId}/versions/{versionId}:
+    parameters:
+    - $ref: '#/components/parameters/DocumentId'
+    - $ref: '#/components/parameters/VersionId'
+    get:
+      tags:
+      - Versions
+      operationId: getDocumentVersion
+      summary: Consultar versão e estado de ingestão
+      description: 'Retorna dados da versão e do arquivo original recebido, se houver.
+
+        `uploaded` confirma apenas a conclusão da ingestão, não o processamento downstream.
+
+        '
+      responses:
+        '200':
+          description: Versão encontrada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentVersion'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /documents/{documentId}/versions/{versionId}/files:
+    parameters:
+    - $ref: '#/components/parameters/DocumentId'
+    - $ref: '#/components/parameters/VersionId'
+    post:
+      tags:
+      - Files
+      operationId: uploadDocumentFile
+      summary: Enviar arquivo original via streaming
+      description: 'Envie os **bytes brutos** do arquivo, sem multipart e sem Base64.
+
+        O servidor lê incrementalmente, calcula SHA-256 e quantidade de bytes,
+
+        valida o tipo real e envia para uma chave temporária no Garage.
+
+        Somente após a conclusão e persistência de metadados o arquivo é
+
+        disponibilizado e o evento `DocumentUploaded` registrado no outbox.
+
+
+        **Concorrência:** somente um upload ativo por versão. Uma versão com
+
+        arquivo original concluído não aceita substituição silenciosa (`409`).
+
+        **Retentativas:** use `Idempotency-Key`. Um upload interrompido deve
+
+        ser reiniciado desde o início na v1; não há upload resumível.
+
+        **Tamanho:** limites configuráveis na API e no ingress; exceder o limite
+
+        produz `413`. O corpo pode chegar sem `Content-Length` (chunked HTTP).
+
+        **Resposta:** `201` somente depois do recebimento completo e commit;
+
+        publicação no Kafka é posterior e assíncrona.
+
+        '
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/ContentDisposition'
+      - $ref: '#/components/parameters/ChecksumSha256'
+      requestBody:
+        required: true
+        description: Stream binário do arquivo original. Tipos habilitados pela política de ingestão.
+        content:
+          application/pdf:
+            schema:
+              type: string
+              format: binary
+          text/markdown:
+            schema:
+              type: string
+              format: binary
+          text/plain:
+            schema:
+              type: string
+              format: binary
+          application/vnd.openxmlformats-officedocument.wordprocessingml.document:
+            schema:
+              type: string
+              format: binary
+          text/html:
+            schema:
+              type: string
+              format: binary
+      responses:
+        '201':
+          description: Upload finalizado, arquivo persistido e evento registrado no outbox.
+          headers:
+            Location:
+              $ref: '#/components/headers/Location'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentFile'
+              example:
+                id: 0199a8bb-7bc4-7000-8000-4d981eb52c93
+                fileName: MOC_CTe_VisaoGeral_v4.00.pdf
+                contentType: application/pdf
+                sizeBytes: 1048576
+                sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+                status: uploaded
+                uploadedAt: '2026-10-15T03:08:00Z'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Token JWT validado por issuer, audience, assinatura, expiração e escopos.
+  parameters:
+    DocumentId:
+      name: documentId
+      in: path
+      required: true
+      description: Identificador UUID do documento.
+      schema:
+        type: string
+        format: uuid
+    VersionId:
+      name: versionId
+      in: path
+      required: true
+      description: Identificador UUID da versão, vinculada ao documento informado.
+      schema:
+        type: string
+        format: uuid
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      description: Chave de repetição segura; recomendado em POST. Até 128 caracteres.
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 128
+      example: cte-moc-4-00-upload-001
+    CorrelationId:
+      name: X-Correlation-Id
+      in: header
+      required: false
+      description: Identificador opcional de rastreabilidade, gerado pelo servidor se ausente.
+      schema:
+        type: string
+        maxLength: 128
+    IfMatch:
+      name: If-Match
+      in: header
+      required: true
+      description: ETag atual obtido da consulta anterior, incluindo aspas.
+      schema:
+        type: string
+      example: '"3"'
+    PageSize:
+      name: pageSize
+      in: query
+      description: Número máximo de itens por página (padrão 20).
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+    Cursor:
+      name: cursor
+      in: query
+      description: Cursor opaco retornado na página anterior.
+      schema:
+        type: string
+    ContentDisposition:
+      name: Content-Disposition
+      in: header
+      required: true
+      description: Nome original do arquivo; sanitizado no servidor e nunca utilizado como chave de storage.
+      schema:
+        type: string
+      example: attachment; filename="MOC_CTe_VisaoGeral_v4.00.pdf"
+    ChecksumSha256:
+      name: X-Content-SHA256
+      in: header
+      required: false
+      description: SHA-256 hexadecimal esperado (64 caracteres); se informado, deve corresponder ao calculado no
+        stream.
+      schema:
+        type: string
+        pattern: ^[a-fA-F0-9]{64}$
+  headers:
+    Location:
+      description: URL relativa ou absoluta do recurso criado.
+      schema:
+        type: string
+    CorrelationId:
+      description: Identificador de correlação efetivamente utilizado.
+      schema:
+        type: string
+    ETag:
+      description: Versão de concorrência do recurso.
+      schema:
+        type: string
+  responses:
+    BadRequest:
+      description: Requisição malformada ou parâmetro inválido.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+    Unauthorized:
+      description: Credenciais ausentes ou inválidas.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+    Forbidden:
+      description: Credenciais válidas sem permissão para a operação.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+    NotFound:
+      description: Recurso não encontrado.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+    Conflict:
+      description: Estado incompatível
+      versão duplicada ou chave idempotente reutilizada com payload diferente.: null
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+    PreconditionFailed:
+      description: ETag informado não corresponde à versão atual.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+    PreconditionRequired:
+      description: Cabeçalho If-Match obrigatório.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+    PayloadTooLarge:
+      description: Tamanho do upload excede o limite configurado.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+    UnsupportedMediaType:
+      description: Tipo de arquivo não permitido ou assinatura incompatível.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+    Unprocessable:
+      description: Dados estruturalmente válidos
+      mas rejeitados por regra de domínio ou integridade.: null
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+    TooManyRequests:
+      description: Limite de requisições ou uploads simultâneos excedido.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+    ServiceUnavailable:
+      description: Dependência essencial indisponível ou sistema temporariamente sobrecarregado.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+  schemas:
+    CreateDocumentRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - title
+      - type
+      - language
+      properties:
+        title: &id001
+          type: string
+          minLength: 1
+          maxLength: 300
+          description: Nome legível da obra.
+          example: Manual de Orientações do Contribuinte - CT-e
+        description: &id002
+          type:
+          - string
+          - 'null'
+          maxLength: 4000
+          description: Resumo opcional do documento.
+        type: &id003
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: Categoria controlada pela aplicação.
+          example: fiscal-manual
+        language: &id004
+          type: string
+          pattern: ^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$
+          description: Idioma no formato BCP 47.
+          example: pt-BR
+        tags: &id005
+          type: array
+          uniqueItems: true
+          maxItems: 50
+          items:
+            type: string
+            minLength: 1
+            maxLength: 80
+          default: []
+        metadata: &id006
+          type: object
+          description: Metadados livres
+          sujeitos a limite de tamanho e validação de tipos JSON.: null
+          additionalProperties: true
+          default: {}
+    PatchDocumentRequest:
+      type: object
+      minProperties: 1
+      additionalProperties: false
+      description: Subconjunto mutável do cadastro, com semântica JSON Merge Patch.
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 300
+        description:
+          type:
+          - string
+          - 'null'
+          maxLength: 4000
+        type:
+          type: string
+          minLength: 1
+          maxLength: 100
+        language:
+          type: string
+          pattern: ^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$
+        tags:
+          type: array
+          uniqueItems: true
+          maxItems: 50
+          items:
+            type: string
+            minLength: 1
+            maxLength: 80
+        metadata:
+          type:
+          - object
+          - 'null'
+          additionalProperties: true
+    Document:
+      type: object
+      additionalProperties: false
+      required:
+      - id
+      - title
+      - type
+      - language
+      - tags
+      - metadata
+      - createdAt
+      - updatedAt
+      properties:
+        title: *id001
+        description: *id002
+        type: *id003
+        language: *id004
+        tags: *id005
+        metadata: *id006
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        createdAt:
+          type: string
+          format: date-time
+          readOnly: true
+        updatedAt:
+          type: string
+          format: date-time
+          readOnly: true
+      description: Cadastro lógico persistido, independente das versões.
+    CreateVersionRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - label
+      properties:
+        label:
+          type: string
+          minLength: 1
+          maxLength: 100
+          example: '4.00'
+          description: Versão editorial
+          não hash de arquivo.: null
+        publishedAt:
+          type:
+          - string
+          - 'null'
+          format: date-time
+          description: Data de publicação conhecida; null quando desconhecida.
+        effectiveFrom:
+          type:
+          - string
+          - 'null'
+          format: date-time
+          description: Início de vigência
+          se aplicável.: null
+        effectiveTo:
+          type:
+          - string
+          - 'null'
+          format: date-time
+          description: Fim de vigência
+          se aplicável.: null
+    DocumentVersion:
+      type: object
+      required:
+      - id
+      - documentId
+      - label
+      - status
+      - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        documentId:
+          type: string
+          format: uuid
+          readOnly: true
+        label:
+          type: string
+          example: '4.00'
+        publishedAt:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        effectiveFrom:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        effectiveTo:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        status:
+          $ref: '#/components/schemas/IngestionStatus'
+        file:
+          oneOf:
+          - $ref: '#/components/schemas/DocumentFile'
+          - type: 'null'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type:
+          - string
+          - 'null'
+          format: date-time
+      description: Versão e status de recepção do arquivo; não representa estado do indexador.
+    IngestionStatus:
+      type: string
+      enum:
+      - awaiting_upload
+      - uploading
+      - uploaded
+      - upload_failed
+      description: Estado de ingestão, distinto dos estados de conversão e indexação.
+    DocumentFile:
+      type: object
+      required:
+      - id
+      - fileName
+      - contentType
+      - sizeBytes
+      - sha256
+      - status
+      - uploadedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        fileName:
+          type: string
+          description: Nome original sanitizado.
+        contentType:
+          type: string
+          description: MIME validado pelo servidor.
+        sizeBytes:
+          type: integer
+          format: int64
+          minimum: 1
+          description: Total real de bytes recebidos.
+        sha256:
+          type: string
+          pattern: ^[a-f0-9]{64}$
+          description: Digest calculado durante a leitura do stream.
+        status:
+          type: string
+          const: uploaded
+        uploadedAt:
+          type: string
+          format: date-time
+      description: Metadados públicos do arquivo; bucket e chave de storage não são expostos.
+    DocumentPage:
+      type: object
+      required:
+      - data
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Document'
+        nextCursor:
+          type:
+          - string
+          - 'null'
+          description: Cursor para a próxima página, ou null se for a última.
+    VersionPage:
+      type: object
+      required:
+      - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/DocumentVersion'
+        nextCursor:
+          type:
+          - string
+          - 'null'
+          description: Cursor para próxima página
+          ou null se última.: null
+    ProblemDetails:
+      type: object
+      description: Formato RFC 9457, com extensões opcionais para validação.
+      required:
+      - type
+      - title
+      - status
+      properties:
+        type:
+          type: string
+          format: uri-reference
+          example: https://docs.example.com/problems/conflict
+        title:
+          type: string
+          example: Conflict
+        status:
+          type: integer
+          example: 409
+        detail:
+          type: string
+          example: Já existe um arquivo original para esta versão.
+        instance:
+          type: string
+          example: /api/v1/documents/123/versions/456/files
+        traceId:
+          type: string
+          description: Identificador de rastreamento distribuído.
+        errors:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Erros por propriedade quando aplicável.

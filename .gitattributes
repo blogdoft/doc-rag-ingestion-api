@@ -1,0 +1,3 @@
+# Normalize line endings to LF regardless of what a tool (editor, dotnet format, ...) writes to
+# the working tree - matches .editorconfig's end_of_line=lf.
+* text=auto eol=lf

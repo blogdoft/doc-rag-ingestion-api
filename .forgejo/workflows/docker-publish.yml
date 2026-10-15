@@ -1,0 +1,147 @@
+# Assumes a self-hosted act_runner labeled "self-hosted" with access to a Docker daemon.
+# Registry settings: REGISTRY, REGISTRY_IMAGE and REGISTRY_USERNAME are repo/org variables
+# (the worker image is published as "${REGISTRY_IMAGE}-worker"); REGISTRY_PASSWORD and
+# ARGO_DEPLOY_SSH_KEY are repo secrets. Mirrors sauron/code-ciir-indexer's workflow.
+name: Test, publish Docker images and deploy
+
+on:
+  push:
+    tags: ["v*.*.*"]
+
+# Runs are queued (not cancelled) since each tag produces a distinct, meaningful image version.
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: self-hosted
+    container:
+      image: mcr.microsoft.com/dotnet/sdk:10.0
+    outputs:
+      semver: ${{ steps.gitversion.outputs.semver }}
+    steps:
+      # actions/checkout is a Node action; the dotnet SDK image doesn't ship Node.
+      - name: Install Node.js
+        run: apt-get update && apt-get install -y --no-install-recommends nodejs
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # GitVersion needs the full commit history and tags to compute a SemVer.
+          fetch-depth: 0
+
+      - name: Compute version (GitVersion)
+        id: gitversion
+        run: |
+          dotnet tool restore
+          dotnet tool run dotnet-gitversion /showvariable SemVer | tee /tmp/semver.txt
+          echo "semver=$(cat /tmp/semver.txt)" >> "$GITHUB_OUTPUT"
+
+      - name: Restore
+        run: dotnet restore DocRag.Ingestion.slnx
+
+      - name: Build
+        run: dotnet build DocRag.Ingestion.slnx --no-restore --configuration Release -p:TreatWarningsAsErrors=true
+
+      # -m:1 runs test projects one at a time: the Infrastructure tests start PostgreSQL, Garage
+      # and Kafka through Testcontainers, which overloads a shared Docker daemon in parallel.
+      # The retry only absorbs transient Testcontainers/Docker contention; a real failure fails
+      # both attempts.
+      - name: Test
+        run: |
+          for attempt in 1 2; do
+            dotnet test DocRag.Ingestion.slnx --no-build --configuration Release -m:1 && exit 0
+            echo "::warning::dotnet test failed (attempt $attempt/2) - retrying in case this is Testcontainers/Docker-daemon contention"
+          done
+          exit 1
+
+  publish:
+    needs: test
+    runs-on: self-hosted
+    env:
+      VERSION: ${{ needs.test.outputs.semver }}
+    outputs:
+      deploy_tag: ${{ steps.tag.outputs.deploy_tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to the container registry
+        run: echo "${{ secrets.REGISTRY_PASSWORD }}" | docker login "${{ vars.REGISTRY }}" -u "${{ vars.REGISTRY_USERNAME }}" --password-stdin
+
+      - name: Determine image tags
+        id: tag
+        run: echo "deploy_tag=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push images
+        run: |
+          for target in api worker; do
+            image="${{ vars.REGISTRY }}/${{ vars.REGISTRY_IMAGE }}"
+            [ "$target" = "worker" ] && image="${image}-worker"
+            docker build --target "$target" --build-arg VERSION="${VERSION}" \
+              -t "${image}:${VERSION}" -t "${image}:latest" -f .eng/docker/Dockerfile .
+            docker push "${image}:${VERSION}"
+            docker push "${image}:latest"
+          done
+
+  update-gitops:
+    needs: publish
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install kustomize
+        env:
+          GITHUB_TOKEN: ""
+        run: |
+          if [ ! -x /tmp/kustomize-bin/kustomize ]; then
+            mkdir -p /tmp/kustomize-bin
+            curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash -s -- /tmp/kustomize-bin
+          fi
+          echo "/tmp/kustomize-bin" >> "$GITHUB_PATH"
+
+      - name: Stamp images into manifests
+        run: |
+          cd .eng/k8s
+          kustomize edit set image \
+            "doc-rag-ingestion-api=${{ vars.REGISTRY }}/${{ vars.REGISTRY_IMAGE }}:${{ needs.publish.outputs.deploy_tag }}" \
+            "doc-rag-ingestion-worker=${{ vars.REGISTRY }}/${{ vars.REGISTRY_IMAGE }}-worker:${{ needs.publish.outputs.deploy_tag }}"
+
+      - name: Install openssh-client
+        run: apk add --no-cache openssh-client
+
+      # ARGO_DEPLOY_SSH_KEY: private half of a dedicated deploy key with write access to
+      # sauron/argo-local-apps (Settings > Deploy keys, "Read and Write" enabled).
+      - name: Configure SSH
+        run: |
+          echo "${{ secrets.ARGO_DEPLOY_SSH_KEY }}" > "${{ github.workspace }}/.ssh-key"
+          chmod 600 "${{ github.workspace }}/.ssh-key"
+          ssh-keyscan -p 2222 forgejo.home.arpa > "${{ github.workspace }}/.ssh-known-hosts" 2>/dev/null
+
+      - name: Sync manifests to argo-local-apps
+        env:
+          GIT_SSH_COMMAND: ssh -i ${{ github.workspace }}/.ssh-key -o UserKnownHostsFile=${{ github.workspace }}/.ssh-known-hosts
+        run: |
+          WORKDIR=$(mktemp -d)
+          git clone --depth 1 ssh://git@forgejo.home.arpa:2222/sauron/argo-local-apps.git "$WORKDIR"
+
+          target="$WORKDIR/manifests/doc-rag/doc-rag-ingestion-api"
+          rm -rf "$target"
+          mkdir -p "$target"
+          cp -r .eng/k8s/. "$target/"
+
+          cd "$WORKDIR"
+          git config user.name "doc-rag-ci"
+          git config user.email "ci@doc-rag.local"
+          git add manifests/doc-rag/doc-rag-ingestion-api
+
+          if git diff --cached --quiet; then
+            echo "No manifest changes, skipping commit."
+          else
+            git commit -m "chore(doc-rag): deploy ingestion ${{ needs.publish.outputs.deploy_tag }}"
+            git push origin main
+          fi
+
+      - name: Clean up SSH key
+        if: always()
+        run: rm -f "${{ github.workspace }}/.ssh-key" "${{ github.workspace }}/.ssh-known-hosts"

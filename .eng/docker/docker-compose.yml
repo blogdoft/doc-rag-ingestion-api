@@ -1,0 +1,109 @@
+# Development stack: PostgreSQL, Garage (S3), Kafka, the API and the outbox worker.
+# Run from the repository root:  docker compose -f .eng/docker/docker-compose.yml --env-file .env up --build
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: docrag
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?copy .env.example to .env}
+      POSTGRES_DB: docrag_ingestion
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U docrag -d docrag_ingestion"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  garage:
+    image: dxflrs/garage:v2.4.1
+    ports:
+      - "3900:3900"
+    volumes:
+      - ./garage/garage.toml:/etc/garage.toml:ro
+      - garage-meta:/var/lib/garage/meta
+      - garage-data:/var/lib/garage/data
+
+  garage-setup:
+    image: dxflrs/garage:v2.4.1
+    depends_on:
+      - garage
+    entrypoint: ["/bin/sh", "/setup.sh"]
+    environment:
+      GARAGE_ACCESS_KEY: ${GARAGE_ACCESS_KEY:?}
+      GARAGE_SECRET_KEY: ${GARAGE_SECRET_KEY:?}
+      GARAGE_BUCKET: ${GARAGE_BUCKET:-doc-rag-originals}
+    volumes:
+      - ./garage/garage.toml:/etc/garage.toml:ro
+      - ./garage/setup.sh:/setup.sh:ro
+    restart: "no"
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.12
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:29092,CONTROLLER://0.0.0.0:9093,EXTERNAL://0.0.0.0:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,EXTERNAL://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+
+  api:
+    build:
+      context: ../..
+      dockerfile: .eng/docker/Dockerfile
+      target: api
+    depends_on:
+      postgres:
+        condition: service_healthy
+      garage-setup:
+        condition: service_completed_successfully
+    ports:
+      - "8080:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__Postgres: "Host=postgres;Database=docrag_ingestion;Username=docrag;Password=${POSTGRES_PASSWORD}"
+      Garage__ServiceUrl: http://garage:3900
+      Garage__Bucket: ${GARAGE_BUCKET:-doc-rag-originals}
+      Garage__AccessKey: ${GARAGE_ACCESS_KEY}
+      Garage__SecretKey: ${GARAGE_SECRET_KEY}
+      Auth__SigningKey: ${AUTH_SIGNING_KEY}
+      Auth__Issuer: doc-rag-ingestion-dev
+      Auth__RequireHttpsMetadata: "false"
+
+  worker:
+    build:
+      context: ../..
+      dockerfile: .eng/docker/Dockerfile
+      target: worker
+    depends_on:
+      api:
+        condition: service_started
+      kafka:
+        condition: service_started
+    ports:
+      - "8081:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__Postgres: "Host=postgres;Database=docrag_ingestion;Username=docrag;Password=${POSTGRES_PASSWORD}"
+      Garage__ServiceUrl: http://garage:3900
+      Garage__Bucket: ${GARAGE_BUCKET:-doc-rag-originals}
+      Garage__AccessKey: ${GARAGE_ACCESS_KEY}
+      Garage__SecretKey: ${GARAGE_SECRET_KEY}
+      Kafka__BootstrapServers: kafka:29092
+
+volumes:
+  postgres-data:
+  garage-meta:
+  garage-data:

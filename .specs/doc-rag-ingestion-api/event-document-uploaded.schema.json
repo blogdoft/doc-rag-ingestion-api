@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.example.com/doc-rag/events/document-uploaded.v1.schema.json",
+  "title": "DocumentUploaded v1",
+  "description": "Evento de ingestão concluída publicado no Kafka via outbox. Consumidores devem ser idempotentes por eventId.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["eventId", "eventType", "eventVersion", "occurredAt", "documentId", "versionId", "fileId", "contentType", "sizeBytes", "sha256", "storage"],
+  "properties": {
+    "eventId": {"type": "string", "format": "uuid"},
+    "eventType": {"const": "DocumentUploaded"},
+    "eventVersion": {"const": 1},
+    "occurredAt": {"type": "string", "format": "date-time"},
+    "correlationId": {"type": ["string", "null"]},
+    "documentId": {"type": "string", "format": "uuid"},
+    "versionId": {"type": "string", "format": "uuid"},
+    "fileId": {"type": "string", "format": "uuid"},
+    "contentType": {"type": "string", "minLength": 1},
+    "sizeBytes": {"type": "integer", "minimum": 1},
+    "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "storage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "bucket", "objectKey"],
+      "properties": {
+        "provider": {"const": "garage-s3"},
+        "bucket": {"type": "string", "minLength": 1},
+        "objectKey": {"type": "string", "minLength": 1}
+      }
+    }
+  }
+}

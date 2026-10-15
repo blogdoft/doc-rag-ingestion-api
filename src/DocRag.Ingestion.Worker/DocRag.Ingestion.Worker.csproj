@@ -1,0 +1,21 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Version>0.0.0-dev</Version>
+    <UserSecretsId>490d5849-e41f-4bc8-80e3-080f0fc0d4d6</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BlogDoFT.Libs.Api.OpenTelemetry" Version="10.1.1" />
+    <PackageReference Include="Npgsql.OpenTelemetry" Version="10.0.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\DocRag.Ingestion.Application\DocRag.Ingestion.Application.csproj" />
+    <ProjectReference Include="..\DocRag.Ingestion.Infrastructure\DocRag.Ingestion.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>

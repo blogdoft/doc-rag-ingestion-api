@@ -1,0 +1,51 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-test:
+    runs-on: docker
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore
+        run: dotnet restore DocRag.Ingestion.slnx
+
+      - name: Build with analyzers (any remaining warning fails the build)
+        run: dotnet build DocRag.Ingestion.slnx --no-restore -c Release -p:TreatWarningsAsErrors=true
+
+      - name: Unit and API tests
+        run: |
+          dotnet test tests/DocRag.Ingestion.Domain.Tests --no-build -c Release
+          dotnet test tests/DocRag.Ingestion.Application.Tests --no-build -c Release
+          dotnet test tests/DocRag.Ingestion.Api.Tests --no-build -c Release
+
+      - name: Integration tests (Testcontainers: PostgreSQL, Garage, Kafka)
+        run: dotnet test tests/DocRag.Ingestion.Infrastructure.Tests --no-build -c Release
+
+      - name: Validate the generated OpenAPI 3.1 document
+        run: |
+          OPENAPI_OUTPUT="$PWD/openapi.json" dotnet test tests/DocRag.Ingestion.Api.Tests --no-build -c Release --filter "FullyQualifiedName~OpenApiDocumentTests"
+          npx --yes @redocly/cli@1 lint openapi.json --skip-rule=no-empty-servers --skip-rule=operation-4xx-response --skip-rule=security-defined
+
+      - name: Dependency vulnerability scan
+        run: |
+          dotnet list DocRag.Ingestion.slnx package --vulnerable --include-transitive 2>&1 | tee vulns.txt
+          ! grep -q "has the following vulnerable packages" vulns.txt
+
+  docker:
+    runs-on: docker
+    needs: build-test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build images
+        run: |
+          docker build -f .eng/docker/Dockerfile --target api -t doc-rag-ingestion-api:ci .
+          docker build -f .eng/docker/Dockerfile --target worker -t doc-rag-ingestion-worker:ci .
