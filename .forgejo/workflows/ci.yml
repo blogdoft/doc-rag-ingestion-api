@@ -7,13 +7,16 @@ on:
 
 jobs:
   build-test:
-    runs-on: docker
+    runs-on: self-hosted
+    container:
+      image: mcr.microsoft.com/dotnet/sdk:10.0
     steps:
-      - uses: actions/checkout@v4
+      # actions/checkout is a Node action and the redocly lint below needs npx; the dotnet SDK image
+      # ships neither, and the runner does not inject Node into custom job containers.
+      - name: Install Node.js
+        run: apt-get update && apt-get install -y --no-install-recommends nodejs npm
 
-      - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: 10.0.x
+      - uses: actions/checkout@v4
 
       - name: Restore
         run: dotnet restore DocRag.Ingestion.slnx
@@ -27,7 +30,7 @@ jobs:
           dotnet test tests/DocRag.Ingestion.Application.Tests --no-build -c Release
           dotnet test tests/DocRag.Ingestion.Api.Tests --no-build -c Release
 
-      - name: Integration tests (Testcontainers: PostgreSQL, Garage, Kafka)
+      - name: "Integration tests (Testcontainers: PostgreSQL, Garage, Kafka)"
         run: dotnet test tests/DocRag.Ingestion.Infrastructure.Tests --no-build -c Release
 
       - name: Validate the generated OpenAPI 3.1 document
@@ -41,7 +44,7 @@ jobs:
           ! grep -q "has the following vulnerable packages" vulns.txt
 
   docker:
-    runs-on: docker
+    runs-on: self-hosted
     needs: build-test
     steps:
       - uses: actions/checkout@v4
