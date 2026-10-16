@@ -1,0 +1,41 @@
+# Public certificate (no private key) of the cluster's "home.arpa Local Root CA", which signs the Keycloak
+# ingress certificate. The API mounts it and adds it to SSL_CERT_DIR so the JWT bearer handler can download
+# the signing keys from the public https://keycloak.home.arpa address, which the Keycloak discovery document
+# advertises even when it is read through the in-cluster address. Source: Secret home-arpa-ca (tls.crt) in
+# the cert-manager namespace.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: doc-rag-ingestion-ca
+data:
+  home-arpa-ca.crt: |
+    -----BEGIN CERTIFICATE-----
+    MIIFFDCCAvygAwIBAgIUKscfNaMdDzdGR2fj+MS5kCI/Gm8wDQYJKoZIhvcNAQEN
+    BQAwIjEgMB4GA1UEAxMXaG9tZS5hcnBhIExvY2FsIFJvb3QgQ0EwHhcNMjYxMDA4
+    MjI0MzE3WhcNMzYxMDA1MjI0MzE3WjAiMSAwHgYDVQQDExdob21lLmFycGEgTG9j
+    YWwgUm9vdCBDQTCCAiIwDQYJKoZIhvcNAQEBBQADggIPADCCAgoCggIBALhqaQMD
+    k95Uk6mUIyMect+3Z67WZoS5iYoRemoKJ61yGruPfkgI1hGB+RGlLNQQkrixQas1
+    rH6O2YxhjOPTGMGyM+F+tBNtuxOO0Cbzz9ZoYEG6CGgZixWTzt5NMt212jNgrLCU
+    eOMr2Egi+4gxwrwKELZ+DG9VtwZ3nSlfWZML9ZOnXGbxj+o7wtCVpO9WgvSEmpEM
+    vNiz45ppFmLyKGTZ6pIjwJpkW2r4zXkuVPqnm2Vlr2M6+KhTS9/BvT8E0QypbG1l
+    JiDvxD/hXeYvy6Fn5oAhepLUj9nrCWNwXW5NLrBdKXqJxItd8UQlaMTv2w2aRUak
+    E9KhZidm73HDuf0yC4DaNUsUBH5LJSuT+ryD/XQx9A1BUT6SA2oIrOZ0e4VLPHTm
+    uWFCPoNykOEWpFzITElnU/ASoGO1nDt6+PuUDgA2XAFoLDn48fDH4WMlSe7acUAg
+    PkKUUSkUVuDUo0d0USskLrLB79zrNY/luTiD+qBpBkRHKmTh7xaY7HsPRmu1eXSU
+    9AlvlB5lzJcNE5v5mazSaQzrvqJQoGQJfaEcldV+pW+4M8sm6JGW2q6Cwkxzbz6M
+    nA0z9WvrGayNyxxAXPSoACJpTFQLZULJw+vk6Bgh5OFHQMK277ksMsy4idBexTQF
+    U1boaC9yjBTNsOS0dJc2sUsqfOq1raZAG1nNAgMBAAGjQjBAMA4GA1UdDwEB/wQE
+    AwICpDAPBgNVHRMBAf8EBTADAQH/MB0GA1UdDgQWBBSUsQsWrj3Vt/WCm8SeURoA
+    K86S/TANBgkqhkiG9w0BAQ0FAAOCAgEAAZaG+RSg0kO4bW248W3P5SMcA1wFEhYl
+    lna+seBloMnNw65jSXji4gAe3zsASL5aHu/uP70k0yvvunLP1K6jbax2FVX4RKqi
+    tfc3sJ0kfr03t+RvR/2Qt7W6RhxagmsQJkhjCKSP10kCdbAqOAZIJiUio37HkMgF
+    p9tLGAQxaEEwPD7sWpc0CLcNiWxEGFL2U4wHG/9XCYywMBqxlfsp4A2nkZVftRb/
+    g4Sr49DGTO5SPZQyqovhy/iRYT7+GCPrND763JqjpUKVUIzkQxsmneeeTfo2yoJu
+    E7RiZ03rDarSJ0sA0GZC1Z8vtyT06hfiLBjAlZP+K+hvIHfBsfyrmCkyUZWZibER
+    W3k43cukiGmIAWR/Mqb0OfOmxGDk06L5IlSYg5Df1/kBU7KPlmAOXGpha4/gOd2O
+    dPYFedJod7/DaguuQ0RiR5342IqKYB36bLaKwRR6KqIaW/HykvCWEkKakAimkR+b
+    UAY99/15m9HAOkWacfiuYijalm2uqBEubIbmZJtlYSpaLkZFZjVP+SKBv/cYUnHi
+    VPjD+dkbTfB4W1zv+lqCS61dOPCcIk3vCEK/7woDdNeynfYrFydbETU/mvtib5XX
+    4CLycEYonpJxlxNf5Pi+rRMgbTb0hsnKrb011JWNLzWVgutG2WmH6N/xPFaFCY9l
+    DEvVV0BbOzc=
+    -----END CERTIFICATE-----

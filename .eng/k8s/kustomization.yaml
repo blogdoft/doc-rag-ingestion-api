@@ -6,6 +6,7 @@ kind: Kustomization
 
 resources:
   - configmap.yaml
+  - ca-configmap.yaml
   - api-deployment.yaml
   - api-service.yaml
   - ingress.yaml

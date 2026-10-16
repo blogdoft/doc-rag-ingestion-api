@@ -29,6 +29,9 @@ spec:
           env:
             - name: OTEL_SERVICE_NAME
               value: "doc-rag-ingestion-api"
+            # Keep the system roots and add the private CA that signs Keycloak (see ca-configmap.yaml).
+            - name: SSL_CERT_DIR
+              value: /etc/ssl/certs:/etc/ssl/home-arpa
             - name: ConnectionStrings__Postgres
               valueFrom:
                 secretKeyRef:
@@ -56,6 +59,10 @@ spec:
               port: http
             initialDelaySeconds: 15
             periodSeconds: 60
+          volumeMounts:
+            - name: home-arpa-ca
+              mountPath: /etc/ssl/home-arpa
+              readOnly: true
           resources:
             requests:
               cpu: 100m
@@ -63,3 +70,7 @@ spec:
             limits:
               cpu: 500m
               memory: 512Mi
+      volumes:
+        - name: home-arpa-ca
+          configMap:
+            name: doc-rag-ingestion-ca
