@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using DocRag.Ingestion.Api.Authentication;
 using DocRag.Ingestion.Api.Contracts;
+using DocRag.Ingestion.Api.Extensions;
 using DocRag.Ingestion.Api.Problems;
 using DocRag.Ingestion.Application.Versions;
 using Microsoft.AspNetCore.Authorization;
@@ -33,6 +34,7 @@ public sealed class VersionsController(VersionService versions) : ControllerBase
     /// <response code="422">Business rule violated (e.g. <c>effectiveTo</c> before <c>effectiveFrom</c>).</response>
     [HttpPost]
     [Authorize(AuthenticationExtensions.WritePolicy)]
+    [RequestSizeLimit(RequestLimits.JsonBodyBytes)]
     [Consumes("application/json")]
     [ProducesResponseType<VersionResponse>(StatusCodes.Status201Created, "application/json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]

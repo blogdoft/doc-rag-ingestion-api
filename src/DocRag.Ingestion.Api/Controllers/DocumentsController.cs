@@ -1,5 +1,6 @@
 using DocRag.Ingestion.Api.Authentication;
 using DocRag.Ingestion.Api.Contracts;
+using DocRag.Ingestion.Api.Extensions;
 using DocRag.Ingestion.Api.Middleware;
 using DocRag.Ingestion.Api.Problems;
 using DocRag.Ingestion.Application.Common;
@@ -36,6 +37,7 @@ public sealed class DocumentsController(DocumentService documents) : ControllerB
     /// <response code="422">Well-formed but rejected by a business rule (e.g. metadata too large).</response>
     [HttpPost]
     [Authorize(AuthenticationExtensions.WritePolicy)]
+    [RequestSizeLimit(RequestLimits.JsonBodyBytes)]
     [Consumes("application/json")]
     [ProducesResponseType<DocumentResponse>(StatusCodes.Status201Created, "application/json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
@@ -158,6 +160,7 @@ public sealed class DocumentsController(DocumentService documents) : ControllerB
     /// <response code="428">The <c>If-Match</c> header is missing.</response>
     [HttpPatch("{documentId:guid}")]
     [Authorize(AuthenticationExtensions.WritePolicy)]
+    [RequestSizeLimit(RequestLimits.JsonBodyBytes)]
     [Consumes("application/merge-patch+json")]
     [ProducesResponseType<DocumentResponse>(StatusCodes.Status200OK, "application/json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]

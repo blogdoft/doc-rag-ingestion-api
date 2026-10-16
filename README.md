@@ -131,8 +131,13 @@ to start on invalid values). Secrets always come from the environment or a secre
 | `PublicBaseUrl` | Optional externally reachable base URL (e.g. `https://blogdoft.home.arpa/code-brain/doc-rag`). Becomes the OpenAPI `servers` entry and the path base for Swagger UI behind a prefix-stripping proxy. |
 | `Observability:*`, `OTEL_SERVICE_NAME` | `BlogDoFT.Libs.Api.OpenTelemetry` exporters (OTLP/Zipkin/Prometheus/console). |
 
-**Reverse proxy / ingress:** the service lifts Kestrel's body limit only on the upload endpoint, but the
-proxy must be configured too: raise (or remove) the body-size limit, extend read/idle timeouts and disable
+**Request body limits:** Kestrel's global limit equals `Upload:MaxBytes`; the JSON endpoints (create/patch
+document, create version) narrow it to 1 MiB with `[RequestSizeLimit]` and answer `413` as a problem document
+beyond it. The global limit is deliberately not low: if an early rejection (an expired token, say) leaves a body
+larger than the limit unread, Kestrel cannot drain it and closes the connection, and a reverse proxy that is still
+sending the body then reports `502 Bad Gateway` instead of the real `401`/`403`.
+
+**Reverse proxy / ingress:** the proxy must be configured too: raise (or remove) the body-size limit, extend read/idle timeouts and disable
 request buffering for `/api/v1/documents/*/versions/*/files` (Traefik: `maxRequestBodyBytes`, no
 `buffering` middleware on that route; ingress-nginx: `proxy-body-size`, `proxy-request-buffering: off`).
 

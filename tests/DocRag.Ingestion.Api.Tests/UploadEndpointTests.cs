@@ -1,6 +1,9 @@
 using System.Net;
 using System.Net.Http.Headers;
 using DocRag.Ingestion.Api.Tests.Support;
+using Microsoft.AspNetCore.Server.Kestrel.Core;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Shouldly;
 
 namespace DocRag.Ingestion.Api.Tests;
@@ -9,7 +12,13 @@ public class UploadEndpointTests : IClassFixture<ApiFactory>
 {
     private readonly HttpClient _client;
 
-    public UploadEndpointTests(ApiFactory factory) => _client = factory.CreateClient().WithToken(TestTokens.Create());
+    private readonly ApiFactory _factory;
+
+    public UploadEndpointTests(ApiFactory factory)
+    {
+        _factory = factory;
+        _client = factory.CreateClient().WithToken(TestTokens.Create());
+    }
 
     private static string Url => $"/api/v1/documents/{Guid.NewGuid()}/versions/{Guid.NewGuid()}/files";
 
@@ -23,6 +32,16 @@ public class UploadEndpointTests : IClassFixture<ApiFactory>
         }
 
         return request;
+    }
+
+    [Fact]
+    public void Should_UseTheUploadMaximumAsTheGlobalKestrelBodyLimit_When_TheServerIsConfigured()
+    {
+        var kestrel = _factory.Services.GetRequiredService<IOptions<KestrelServerOptions>>().Value;
+
+        // The factory configures Upload:MaxBytes = 1024. A global limit below the upload maximum makes Kestrel
+        // close the connection after an early rejection of a large body, which a reverse proxy reports as 502.
+        kestrel.Limits.MaxRequestBodySize.ShouldBe(1024);
     }
 
     [Fact]

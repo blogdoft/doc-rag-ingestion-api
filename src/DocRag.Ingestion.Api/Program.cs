@@ -7,13 +7,11 @@ using DocRag.Ingestion.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Body limits: 1 MiB for JSON endpoints; the upload endpoint lifts it itself (StreamingUploadFilter).
-builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = 1024 * 1024);
-
 builder.AddObservability("doc-rag-ingestion-api");
 
 builder.Services
     .AddIngestionAuthentication(builder.Configuration)
+    .AddRequestBodyLimits()
     .AddApiControllers()
     .AddSwaggerDocumentation()
     .AddApplicationServices(builder.Configuration)
