@@ -2,6 +2,9 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: doc-rag-ingestion-api
+  annotations:
+    # Reloader (k3s-apps) restarts the pods when a ConfigMap or Secret this Deployment uses changes.
+    reloader.stakater.com/auto: "true"
   labels:
     app: doc-rag-ingestion-api
 spec:
@@ -29,7 +32,8 @@ spec:
           env:
             - name: OTEL_SERVICE_NAME
               value: "doc-rag-ingestion-api"
-            # Keep the system roots and add the private CA that signs Keycloak (see ca-configmap.yaml).
+            # Keep the system roots and add the private CA that signs Keycloak (ConfigMap home-arpa-ca, kept up to
+            # date in every namespace by the trust-manager Bundle in k3s-apps).
             - name: SSL_CERT_DIR
               value: /etc/ssl/certs:/etc/ssl/home-arpa
             - name: ConnectionStrings__Postgres
@@ -73,4 +77,4 @@ spec:
       volumes:
         - name: home-arpa-ca
           configMap:
-            name: doc-rag-ingestion-ca
+            name: home-arpa-ca

@@ -2,6 +2,9 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: doc-rag-ingestion-worker
+  annotations:
+    # Reloader (k3s-apps) restarts the pods when a ConfigMap or Secret this Deployment uses changes.
+    reloader.stakater.com/auto: "true"
   labels:
     app: doc-rag-ingestion-worker
 spec:
