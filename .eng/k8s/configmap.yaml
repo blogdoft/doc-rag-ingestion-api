@@ -17,7 +17,7 @@ data:
   Garage__Bucket: "doc-rag-originals"
   Auth__Authority: "https://keycloak.home.arpa/realms/blogdoft"
   Auth__Audience: "doc-rag-ingestion"
-  Kafka__BootstrapServers: "kafka.kafka.svc.cluster.local:9092"
+  Kafka__BootstrapServers: "kafka-bootstrap.home.arpa:9092"
   Kafka__SecurityProtocol: "Plaintext"
   Observability__OpenTelemetry__UseTracingExporter: "Otlp"
   Observability__OpenTelemetry__UseMetricsExporter: "DoNotUse"
