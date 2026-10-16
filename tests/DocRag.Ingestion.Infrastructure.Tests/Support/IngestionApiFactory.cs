@@ -37,6 +37,11 @@ public sealed class IngestionApiFactory : WebApplicationFactory<Program>
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
+
+        // Container images (e.g. dotnet/sdk) export ASPNETCORE_HTTP_PORTS=8080, which would make every
+        // factory try to bind the same fixed port; each host must use the random one chosen by UseKestrel().
+        builder.UseSetting(WebHostDefaults.HttpPortsKey, string.Empty);
+        builder.UseSetting(WebHostDefaults.HttpsPortsKey, string.Empty);
         builder.ConfigureLogging(logging => logging.AddProvider(Logs));
         builder.ConfigureAppConfiguration((_, configuration) =>
         {
