@@ -125,7 +125,7 @@ jobs:
           WORKDIR=$(mktemp -d)
           git clone --depth 1 ssh://git@forgejo.home.arpa:2222/sauron/argo-local-apps.git "$WORKDIR"
 
-          target="$WORKDIR/manifests/doc-rag/doc-rag-ingestion-api"
+          target="$WORKDIR/manifests/code-brain/doc-rag-ingestion-api"
           rm -rf "$target"
           mkdir -p "$target"
           cp -r .eng/k8s/. "$target/"
@@ -133,7 +133,7 @@ jobs:
           cd "$WORKDIR"
           git config user.name "doc-rag-ci"
           git config user.email "ci@doc-rag.local"
-          git add manifests/doc-rag/doc-rag-ingestion-api
+          git add manifests/code-brain/doc-rag-ingestion-api
 
           if git diff --cached --quiet; then
             echo "No manifest changes, skipping commit."
