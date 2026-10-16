@@ -38,6 +38,11 @@ public static class AuthenticationExtensions
                 bearer.MapInboundClaims = false;
                 bearer.RequireHttpsMetadata = options.RequireHttpsMetadata;
                 bearer.Authority = options.Authority;
+                if (!string.IsNullOrWhiteSpace(options.MetadataAddress))
+                {
+                    bearer.MetadataAddress = options.MetadataAddress;
+                }
+
                 bearer.TokenValidationParameters = new TokenValidationParameters
                 {
                     ValidateIssuer = true,

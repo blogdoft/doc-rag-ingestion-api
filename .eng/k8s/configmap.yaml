@@ -18,6 +18,11 @@ data:
   Auth__Authority: "https://keycloak.home.arpa/realms/k8s"
   Auth__Audience: "code-brain"
   Auth__SwaggerClientId: "code-brain"
+  # The public certificate comes from the private "home.arpa Local Root CA", which the pods do not trust, so
+  # the signing keys are read through the in-cluster HTTP address. Issuer, audience and the Swagger login
+  # keep using the public Authority above.
+  Auth__MetadataAddress: "http://keycloak.keycloak.svc.cluster.local:8080/realms/k8s/.well-known/openid-configuration"
+  Auth__RequireHttpsMetadata: "false"
   Kafka__BootstrapServers: "kafka-bootstrap.home.arpa:9092"
   Kafka__SecurityProtocol: "Plaintext"
   Observability__OpenTelemetry__UseTracingExporter: "Otlp"

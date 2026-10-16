@@ -11,6 +11,14 @@ public sealed class AuthOptions
     /// <summary>Gets or sets the identity provider authority (issuer URL) used to discover signing keys.</summary>
     public string? Authority { get; set; }
 
+    /// <summary>
+    /// Gets or sets the URL of the OpenID Connect discovery document, when it must differ from the one derived from
+    /// <see cref="Authority"/>. Use it to read the signing keys through an in-cluster address while tokens and the
+    /// Swagger login keep the public authority (for example when the public certificate comes from a private CA the
+    /// pod does not trust).
+    /// </summary>
+    public string? MetadataAddress { get; set; }
+
     /// <summary>Gets or sets the expected token issuer. Defaults to <see cref="Authority"/>.</summary>
     public string? Issuer { get; set; }
 

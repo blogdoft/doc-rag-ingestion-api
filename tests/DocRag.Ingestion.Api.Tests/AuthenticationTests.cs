@@ -1,6 +1,10 @@
 using System.Net;
 using System.Net.Http.Json;
 using DocRag.Ingestion.Api.Tests.Support;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Shouldly;
 
 namespace DocRag.Ingestion.Api.Tests;
@@ -16,6 +20,24 @@ public class AuthenticationTests : IClassFixture<ApiFactory>
     {
         var client = _factory.CreateClient();
         return token is null ? client : client.WithToken(token);
+    }
+
+    [Fact]
+    public void Should_ReadSigningKeysFromTheMetadataAddress_When_ItIsConfigured()
+    {
+        const string metadata = "http://keycloak.internal:8080/realms/k8s/.well-known/openid-configuration";
+        using var factory = _factory.WithWebHostBuilder(builder => builder.ConfigureAppConfiguration((_, configuration) =>
+            configuration.AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Auth:Authority"] = "https://keycloak.example/realms/k8s",
+                ["Auth:SigningKey"] = string.Empty,
+                ["Auth:MetadataAddress"] = metadata,
+            })));
+
+        var bearer = factory.Services.GetRequiredService<IOptionsMonitor<JwtBearerOptions>>().Get(JwtBearerDefaults.AuthenticationScheme);
+
+        bearer.Authority.ShouldBe("https://keycloak.example/realms/k8s");
+        bearer.MetadataAddress.ShouldBe(metadata);
     }
 
     [Fact]
