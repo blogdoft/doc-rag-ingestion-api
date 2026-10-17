@@ -15,7 +15,7 @@ data:
   Garage__ServiceUrl: "http://garage.garage.svc.cluster.local:3900"
   Garage__Region: "garage"
   Garage__Bucket: "doc-rag-originals"
-  Auth__Authority: "https://keycloak.home.arpa/realms/k8s"
+  Auth__Authority: "https://keycloak.blogdoft.dev/realms/k8s"
   Auth__Audience: "code-brain"
   Auth__SwaggerClientId: "code-brain"
   # The public certificate comes from the private "home.arpa Local Root CA", which the pods do not trust, so
