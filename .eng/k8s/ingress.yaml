@@ -17,12 +17,11 @@ metadata:
     traefik.ingress.kubernetes.io/router.middlewares: code-brain-doc-rag-ingestion-api-strip-prefix@kubernetescrd
 spec:
   ingressClassName: traefik
-  # Certificate requested by code-rag-front's Ingress (cert-manager); no annotation here on
-  # purpose, so several Ingresses do not fight over the same secret.
+  # Certificate requested by welcome-cluster's Ingress; no secretName here on purpose,
+  # Traefik picks it by SNI.
   tls:
     - hosts:
         - blogdoft.home.arpa
-      secretName: blogdoft-tls
   rules:
     - host: blogdoft.home.arpa
       http:
