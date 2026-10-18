@@ -112,15 +112,16 @@ jobs:
 
       # ARGO_DEPLOY_SSH_KEY: private half of a dedicated deploy key with write access to
       # sauron/argo-local-apps (Settings > Deploy keys, "Read and Write" enabled).
+      # ARGO_SSH_KNOWN_HOSTS (org/repo variable) pins the host key of forgejo.home.arpa:2222; it is checked strictly.
       - name: Configure SSH
         run: |
           echo "${{ secrets.ARGO_DEPLOY_SSH_KEY }}" > "${{ github.workspace }}/.ssh-key"
           chmod 600 "${{ github.workspace }}/.ssh-key"
-          ssh-keyscan -p 2222 forgejo.home.arpa > "${{ github.workspace }}/.ssh-known-hosts" 2>/dev/null
+          echo "${{ vars.ARGO_SSH_KNOWN_HOSTS }}" > "${{ github.workspace }}/.ssh-known-hosts"
 
       - name: Sync manifests to argo-local-apps
         env:
-          GIT_SSH_COMMAND: ssh -i ${{ github.workspace }}/.ssh-key -o UserKnownHostsFile=${{ github.workspace }}/.ssh-known-hosts
+          GIT_SSH_COMMAND: ssh -i ${{ github.workspace }}/.ssh-key -o UserKnownHostsFile=${{ github.workspace }}/.ssh-known-hosts -o StrictHostKeyChecking=yes
         run: |
           WORKDIR=$(mktemp -d)
           git clone --depth 1 ssh://git@forgejo.home.arpa:2222/sauron/argo-local-apps.git "$WORKDIR"
