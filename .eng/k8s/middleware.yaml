@@ -1,4 +1,4 @@
-# Strips the routing-only /code-brain/doc-rag prefix before Traefik forwards to the service: the
+# Strips the routing-only /code-brain/api/doc-rag prefix before Traefik forwards to the service: the
 # API routes are rooted at "api/v1/..." and "swagger". Referenced from ingress.yaml.
 apiVersion: traefik.io/v1alpha1
 kind: Middleware
@@ -7,4 +7,4 @@ metadata:
 spec:
   stripPrefix:
     prefixes:
-      - /code-brain/doc-rag
+      - /code-brain/api/doc-rag

@@ -81,7 +81,7 @@ Prerequisites: .NET SDK 10 and Docker (compose plus the Testcontainers-based tes
 
 Pushing a `vX.Y.Z` tag runs `.forgejo/workflows/docker-publish.yml`: tests, image build/push (`api` and
 `worker`) and a commit of `.eng/k8s/` to `sauron/argo-local-apps`, which ArgoCD applies. The API is then served at
-`https://blogdoft.home.arpa/code-brain/doc-rag` (Swagger UI under `/swagger`). The workflow needs the Forgejo
+`https://blogdoft.home.arpa/code-brain/api/doc-rag` (Swagger UI under `/swagger`). The workflow needs the Forgejo
 variables `REGISTRY`, `REGISTRY_IMAGE`, `REGISTRY_USERNAME` and the secrets `REGISTRY_PASSWORD`, `ARGO_DEPLOY_SSH_KEY`
 and `MIRROR_GITHUB_TOKEN` (GitHub mirror).
 
@@ -128,7 +128,7 @@ to start on invalid values). Secrets always come from the environment or a secre
 | `Kafka:BootstrapServers/TopicDocumentUploaded/SecurityProtocol/Sasl*` | Producer (worker only): `acks=all`, idempotent producer. Use `SaslSsl` outside development. |
 | `Outbox:BatchSize/PollingSeconds/MaxAttemptsBeforeAlert/LeaseSeconds` | Dispatcher. |
 | `Reconciliation:IntervalSeconds/MultipartMaxAgeMinutes/CleanupBatchSize` | Reconciler. |
-| `PublicBaseUrl` | Optional externally reachable base URL (e.g. `https://blogdoft.home.arpa/code-brain/doc-rag`). Becomes the OpenAPI `servers` entry and the path base for Swagger UI behind a prefix-stripping proxy. |
+| `PublicBaseUrl` | Optional externally reachable base URL (e.g. `https://blogdoft.home.arpa/code-brain/api/doc-rag`). Becomes the OpenAPI `servers` entry and the path base for Swagger UI behind a prefix-stripping proxy. |
 | `Observability:*`, `OTEL_SERVICE_NAME` | `BlogDoFT.Libs.Api.OpenTelemetry` exporters (OTLP/Zipkin/Prometheus/console). |
 
 **Request body limits:** Kestrel's global limit equals `Upload:MaxBytes`; the JSON endpoints (create/patch

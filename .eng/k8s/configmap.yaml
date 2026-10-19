@@ -11,7 +11,7 @@ data:
   ASPNETCORE_ENVIRONMENT: "Production"
   # Externally reachable base URL (behind the Traefik prefix strip): used for the OpenAPI "servers"
   # entry and Swagger UI redirects. Leave unset locally.
-  PublicBaseUrl: "https://blogdoft.home.arpa/code-brain/doc-rag"
+  PublicBaseUrl: "https://blogdoft.home.arpa/code-brain/api/doc-rag"
   Garage__ServiceUrl: "http://garage.garage.svc.cluster.local:3900"
   Garage__Region: "garage"
   Garage__Bucket: "doc-rag-originals"

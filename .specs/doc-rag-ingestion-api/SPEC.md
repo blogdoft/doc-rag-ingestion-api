@@ -38,7 +38,7 @@ Implementar uma API HTTP para (a) cadastrar a identidade lógica de documentos, 
 | GET | `/api/v1/documents/{documentId}/versions/{versionId}` | `200` versão |
 | POST | `/api/v1/documents/{documentId}/versions/{versionId}/files` | `201` arquivo recebido |
 
-**Prefixo de publicação:** atrás de um proxy que remove um prefixo de roteamento (ex.: `/code-brain/doc-rag` no ingress do cluster), a URL pública é informada em `PublicBaseUrl`. Ela passa a ser o único `servers` do documento OpenAPI e o `PathBase` das requisições, de modo que o "Try it out" do Swagger UI, os redirecionamentos do `/swagger` e o header `Location` das respostas `201` incluam o prefixo (`{PathBase}/api/v1/...`). Sem `PublicBaseUrl` nada muda: o `Location` é relativo à raiz e o Swagger UI usa o esquema/host da própria requisição.
+**Prefixo de publicação:** atrás de um proxy que remove um prefixo de roteamento (ex.: `/code-brain/api/doc-rag` no ingress do cluster), a URL pública é informada em `PublicBaseUrl`. Ela passa a ser o único `servers` do documento OpenAPI e o `PathBase` das requisições, de modo que o "Try it out" do Swagger UI, os redirecionamentos do `/swagger` e o header `Location` das respostas `201` incluam o prefixo (`{PathBase}/api/v1/...`). Sem `PublicBaseUrl` nada muda: o `Location` é relativo à raiz e o Swagger UI usa o esquema/host da própria requisição.
 
 **Atenção:** `201` para upload significa arquivo recebido, armazenado e registrado com outbox no banco. **Não** significa que Kafka já entregou o evento nem que conversão/indexação terminaram. O nome do arquivo chega em `Content-Disposition`; tipos aceitos incluem PDF, Markdown, texto, HTML e DOCX, sujeitos a configuração.
 
@@ -132,7 +132,7 @@ Validar assinatura JWT, issuer, audience, expiração, escopos. Bloquear path tr
     "MaxConcurrentUploads": 3, "LeaseMinutes": 30
   },
   "Outbox": { "BatchSize": 100, "PollingSeconds": 5, "MaxAttemptsBeforeAlert": 20 },
-  "PublicBaseUrl": "https://blogdoft.home.arpa/code-brain/doc-rag"
+  "PublicBaseUrl": "https://blogdoft.home.arpa/code-brain/api/doc-rag"
 }
 ```
 
@@ -203,4 +203,4 @@ Variáveis do repositório: `REGISTRY`, `REGISTRY_IMAGE`, `REGISTRY_USERNAME`. S
 
 Manifestos em `.eng/k8s/` (kustomize): `configmap.yaml` (configuração não secreta compartilhada), `api-deployment.yaml`, `api-service.yaml`, `worker-deployment.yaml`, `ingress.yaml` e `middleware.yaml`. Probes em `/health/ready` e `/health/live`. Os Secrets `doc-rag-ingestion-secrets` (`connection-string`) e `doc-rag-ingestion-garage-secrets` (`access-key`, `secret-key`) não são gerenciados no repositório.
 
-**Roteamento:** o Ingress (Traefik, `websecure`, TLS `blogdoft-tls`) publica o host compartilhado `blogdoft.home.arpa` em `/code-brain/doc-rag`. O Middleware `stripPrefix` remove esse prefixo antes de encaminhar, e `PublicBaseUrl` informa o prefixo à aplicação (§3). Nenhum middleware de buffering é aplicado, para que os uploads de até `Upload:MaxBytes` sejam transmitidos em streaming.
+**Roteamento:** o Ingress (Traefik, `websecure`, TLS `blogdoft-tls`) publica o host compartilhado `blogdoft.home.arpa` em `/code-brain/api/doc-rag`. O Middleware `stripPrefix` remove esse prefixo antes de encaminhar, e `PublicBaseUrl` informa o prefixo à aplicação (§3). Nenhum middleware de buffering é aplicado, para que os uploads de até `Upload:MaxBytes` sejam transmitidos em streaming.

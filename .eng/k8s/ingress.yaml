@@ -1,4 +1,4 @@
-# Traefik ingress, served under the shared blogdoft.home.arpa host at /code-brain/doc-rag. The
+# Traefik ingress, served under the shared blogdoft.home.arpa host at /code-brain/api/doc-rag. The
 # prefix is stripped by the strip-prefix Middleware (middleware.yaml) before forwarding, since the
 # API routes are rooted at "api/v1/..." and "swagger". PublicBaseUrl (configmap.yaml) tells the
 # app about the prefix so the OpenAPI "servers" entry and Swagger UI redirects include it.
@@ -26,7 +26,7 @@ spec:
     - host: blogdoft.home.arpa
       http:
         paths:
-          - path: /code-brain/doc-rag
+          - path: /code-brain/api/doc-rag
             pathType: Prefix
             backend:
               service:
