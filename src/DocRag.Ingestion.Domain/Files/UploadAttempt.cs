@@ -104,7 +104,7 @@ public sealed class UploadAttempt
     {
         if (Status != UploadAttemptStatus.Active)
         {
-            return new Failure("409-upload-attempt-not-active", "The upload attempt is no longer active (its lease may have expired).");
+            return new Failure("400-upload-attempt-not-active", "The upload attempt is no longer active (its lease may have expired).");
         }
 
         Status = UploadAttemptStatus.Completed;

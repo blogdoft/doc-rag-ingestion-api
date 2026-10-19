@@ -38,7 +38,7 @@ info:
 
     o mesmo payload deve reproduzir o resultado anterior, enquanto payload divergente
 
-    gera `409`. Chaves são escopadas por operação.
+    gera `400`. Chaves são escopadas por operação.
 
     '
   contact:
@@ -117,10 +117,6 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '422':
-          $ref: '#/components/responses/Unprocessable'
         '429':
           $ref: '#/components/responses/TooManyRequests'
     get:
@@ -240,12 +236,6 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
-        '412':
-          $ref: '#/components/responses/PreconditionFailed'
-        '428':
-          $ref: '#/components/responses/PreconditionRequired'
-        '422':
-          $ref: '#/components/responses/Unprocessable'
   /documents/{documentId}/versions:
     parameters:
     - $ref: '#/components/parameters/DocumentId'
@@ -292,10 +282,6 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '422':
-          $ref: '#/components/responses/Unprocessable'
     get:
       tags:
       - Versions
@@ -369,7 +355,7 @@ paths:
 
         **Concorrência:** somente um upload ativo por versão. Uma versão com
 
-        arquivo original concluído não aceita substituição silenciosa (`409`).
+        arquivo original concluído não aceita substituição silenciosa (`400`).
 
         **Retentativas:** use `Idempotency-Key`. Um upload interrompido deve
 
@@ -377,7 +363,7 @@ paths:
 
         **Tamanho:** limites configuráveis na API e no ingress; exceder o limite
 
-        produz `413`. O corpo pode chegar sem `Content-Length` (chunked HTTP).
+        produz `400`. O corpo pode chegar sem `Content-Length` (chunked HTTP).
 
         **Resposta:** `201` somente depois do recebimento completo e commit;
 
@@ -438,14 +424,6 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '413':
-          $ref: '#/components/responses/PayloadTooLarge'
-        '415':
-          $ref: '#/components/responses/UnsupportedMediaType'
-        '422':
-          $ref: '#/components/responses/Unprocessable'
         '429':
           $ref: '#/components/responses/TooManyRequests'
         '503':
@@ -566,44 +544,6 @@ components:
             $ref: '#/components/schemas/ProblemDetails'
     NotFound:
       description: Recurso não encontrado.
-      content:
-        application/problem+json:
-          schema:
-            $ref: '#/components/schemas/ProblemDetails'
-    Conflict:
-      description: Estado incompatível
-      versão duplicada ou chave idempotente reutilizada com payload diferente.: null
-      content:
-        application/problem+json:
-          schema:
-            $ref: '#/components/schemas/ProblemDetails'
-    PreconditionFailed:
-      description: ETag informado não corresponde à versão atual.
-      content:
-        application/problem+json:
-          schema:
-            $ref: '#/components/schemas/ProblemDetails'
-    PreconditionRequired:
-      description: Cabeçalho If-Match obrigatório.
-      content:
-        application/problem+json:
-          schema:
-            $ref: '#/components/schemas/ProblemDetails'
-    PayloadTooLarge:
-      description: Tamanho do upload excede o limite configurado.
-      content:
-        application/problem+json:
-          schema:
-            $ref: '#/components/schemas/ProblemDetails'
-    UnsupportedMediaType:
-      description: Tipo de arquivo não permitido ou assinatura incompatível.
-      content:
-        application/problem+json:
-          schema:
-            $ref: '#/components/schemas/ProblemDetails'
-    Unprocessable:
-      description: Dados estruturalmente válidos
-      mas rejeitados por regra de domínio ou integridade.: null
       content:
         application/problem+json:
           schema:
@@ -902,13 +842,13 @@ components:
         type:
           type: string
           format: uri-reference
-          example: https://docs.example.com/problems/conflict
+          example: https://docs.example.com/problems/bad-request
         title:
           type: string
-          example: Conflict
+          example: Bad Request
         status:
           type: integer
-          example: 409
+          example: 400
         detail:
           type: string
           example: Já existe um arquivo original para esta versão.

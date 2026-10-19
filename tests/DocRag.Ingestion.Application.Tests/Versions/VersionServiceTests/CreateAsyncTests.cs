@@ -35,26 +35,26 @@ public class CreateAsyncTests : BaseVersionServiceTests
     }
 
     [Fact]
-    public async Task Should_ReturnConflictAndNotCommit_When_LabelAlreadyExists()
+    public async Task Should_ReturnBadRequestAndNotCommit_When_LabelAlreadyExists()
     {
         var service = Service;
         Versions.InsertAsync(Arg.Any<DocumentVersion>(), Arg.Any<CancellationToken>())
-            .Returns(new Failure("409-version-label-exists", "duplicate"));
+            .Returns(new Failure("400-version-label-exists", "duplicate"));
 
         var result = await service.CreateAsync(Command(), CancellationToken.None);
 
-        result.Failure.Code.ShouldBe("409-version-label-exists");
+        result.Failure.Code.ShouldBe("400-version-label-exists");
         await UnitOfWork.DidNotReceive().CommitAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
-    public async Task Should_ReturnUnprocessable_When_EffectiveRangeIsInverted()
+    public async Task Should_ReturnBadRequest_When_EffectiveRangeIsInverted()
     {
         var service = Service;
         var command = Command() with { EffectiveFrom = TestData.Now, EffectiveTo = TestData.Now.AddDays(-1) };
 
         var result = await service.CreateAsync(command, CancellationToken.None);
 
-        result.Failure.Code.ShouldBe("422-version-invalid");
+        result.Failure.Code.ShouldBe("400-version-invalid");
     }
 }

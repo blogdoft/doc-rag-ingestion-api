@@ -60,7 +60,7 @@ public sealed class FileUploadService(
         var contentType = command.ContentType.ToLowerInvariant();
         if (!policy.AllowedContentTypes.Contains(contentType, StringComparer.OrdinalIgnoreCase))
         {
-            return new Failure("415-content-type-not-allowed", $"The media type '{contentType}' is not accepted.");
+            return new Failure("400-content-type-not-allowed", $"The media type '{contentType}' is not accepted.");
         }
 
         var fileName = FileNameSanitizer.Sanitize(command.FileName);
@@ -101,7 +101,7 @@ public sealed class FileUploadService(
             if (expectedSha is not null && expectedSha != digest)
             {
                 return await AbortAsync(
-                    command, attempt, request, new Failure("422-checksum-mismatch", "The SHA-256 of the received bytes differs from X-Content-SHA256."),
+                    command, attempt, request, new Failure("400-checksum-mismatch", "The SHA-256 of the received bytes differs from X-Content-SHA256."),
                     stream.BytesRead, cancellationToken);
             }
 
@@ -222,12 +222,12 @@ public sealed class FileUploadService(
 
             if (filled == 0)
             {
-                return new Failure("422-file-empty", "The upload body is empty.");
+                return new Failure("400-file-empty", "The upload body is empty.");
             }
 
             if (!FileSignature.Matches(contentType, header.AsSpan(0, filled)))
             {
-                return new Failure("415-file-signature-mismatch", "The file content does not match the declared media type.");
+                return new Failure("400-file-signature-mismatch", "The file content does not match the declared media type.");
             }
 
             await using var replay = new PrefixedStream(header.AsMemory(0, filled), stream);
@@ -236,7 +236,7 @@ public sealed class FileUploadService(
         }
         catch (UploadTooLargeException ex)
         {
-            return new Failure("413-file-too-large", $"The upload exceeds the limit of {ex.Limit} bytes.");
+            return new Failure("400-file-too-large", $"The upload exceeds the limit of {ex.Limit} bytes.");
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -275,7 +275,7 @@ public sealed class FileUploadService(
                 await unitOfWork.RollbackAsync(cancellationToken);
                 return await AbortAsync(
                     command, attempt, request,
-                    new Failure("409-upload-attempt-not-active", "The upload lease expired before the upload finished."),
+                    new Failure("400-upload-attempt-not-active", "The upload lease expired before the upload finished."),
                     size, cancellationToken, markAttempt: false);
             }
 

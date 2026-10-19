@@ -11,24 +11,24 @@ public class PatchAsyncTests : BaseDocumentServiceTests
     private static DocumentPatch DescriptionPatch => new() { Description = Optional<string?>.Of("updated") };
 
     [Fact]
-    public async Task Should_ReturnPreconditionRequired_When_IfMatchIsMissing()
+    public async Task Should_ReturnBadRequest_When_IfMatchIsMissing()
     {
         var result = await Service.PatchAsync(Guid.NewGuid(), null, DescriptionPatch, CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();
-        result.Failure.Code.ShouldBe("428-if-match-required");
+        result.Failure.Code.ShouldBe("400-if-match-required");
         await Documents.DidNotReceiveWithAnyArgs().GetAsync(default, default);
     }
 
     [Fact]
-    public async Task Should_ReturnPreconditionFailed_When_RevisionIsStale()
+    public async Task Should_ReturnBadRequest_When_RevisionIsStale()
     {
         var document = TestData.Document();
         Documents.GetAsync(document.PublicId, Arg.Any<CancellationToken>()).Returns(document);
 
         var result = await Service.PatchAsync(document.PublicId, 99, DescriptionPatch, CancellationToken.None);
 
-        result.Failure.Code.ShouldBe("412-etag-mismatch");
+        result.Failure.Code.ShouldBe("400-etag-mismatch");
         await Documents.DidNotReceiveWithAnyArgs().UpdateAsync(default!, default, default);
     }
 
@@ -47,7 +47,7 @@ public class PatchAsyncTests : BaseDocumentServiceTests
     }
 
     [Fact]
-    public async Task Should_ReturnPreconditionFailed_When_AnotherWriterWinsTheRace()
+    public async Task Should_ReturnBadRequest_When_AnotherWriterWinsTheRace()
     {
         var document = TestData.Document();
         Documents.GetAsync(document.PublicId, Arg.Any<CancellationToken>()).Returns(document);
@@ -55,7 +55,7 @@ public class PatchAsyncTests : BaseDocumentServiceTests
 
         var result = await Service.PatchAsync(document.PublicId, 1, DescriptionPatch, CancellationToken.None);
 
-        result.Failure.Code.ShouldBe("412-etag-mismatch");
+        result.Failure.Code.ShouldBe("400-etag-mismatch");
     }
 
     [Fact]
@@ -70,7 +70,7 @@ public class PatchAsyncTests : BaseDocumentServiceTests
     }
 
     [Fact]
-    public async Task Should_ReturnUnprocessableWithoutPersisting_When_PatchViolatesAnInvariant()
+    public async Task Should_ReturnBadRequestWithoutPersisting_When_PatchViolatesAnInvariant()
     {
         var document = TestData.Document();
         Documents.GetAsync(document.PublicId, Arg.Any<CancellationToken>()).Returns(document);
@@ -78,7 +78,7 @@ public class PatchAsyncTests : BaseDocumentServiceTests
 
         var result = await Service.PatchAsync(document.PublicId, 1, patch, CancellationToken.None);
 
-        result.Failure.Code.ShouldBe("422-document-invalid");
+        result.Failure.Code.ShouldBe("400-document-invalid");
         await Documents.DidNotReceiveWithAnyArgs().UpdateAsync(default!, default, default);
     }
 }

@@ -32,8 +32,8 @@ public class UploadBehaviourTests(InfrastructureFixture infrastructure) : E2ETes
     }
 
     [Theory]
-    [InlineData("application/zip", HttpStatusCode.UnsupportedMediaType)]
-    [InlineData("image/png", HttpStatusCode.UnsupportedMediaType)]
+    [InlineData("application/zip", HttpStatusCode.BadRequest)]
+    [InlineData("image/png", HttpStatusCode.BadRequest)]
     public async Task Should_RejectTheUpload_When_MimeTypeIsNotEnabled(string contentType, HttpStatusCode expected)
     {
         var (client, document, version) = await NewVersionAsync();
@@ -52,7 +52,7 @@ public class UploadBehaviourTests(InfrastructureFixture infrastructure) : E2ETes
         var fake = await UploadAsync(client, document, version, "<html>definitely not a pdf</html>"u8.ToArray());
         var retry = await UploadAsync(client, document, version, PdfBytes);
 
-        fake.StatusCode.ShouldBe(HttpStatusCode.UnsupportedMediaType);
+        fake.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
         retry.StatusCode.ShouldBe(HttpStatusCode.Created);
         (await ScalarAsync<long>("SELECT count(*) FROM outbox_messages")).ShouldBe(1);
     }
@@ -64,7 +64,7 @@ public class UploadBehaviourTests(InfrastructureFixture infrastructure) : E2ETes
 
         var response = await UploadAsync(client, document, version, []);
 
-        response.StatusCode.ShouldBe(HttpStatusCode.UnprocessableEntity);
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
         (await ScalarAsync<string>("SELECT ingestion_status FROM document_versions")).ShouldBe("upload_failed");
     }
 
@@ -75,7 +75,7 @@ public class UploadBehaviourTests(InfrastructureFixture infrastructure) : E2ETes
 
         var response = await UploadAsync(client, document, version, PdfBytes, sha256: new string('0', 64));
 
-        response.StatusCode.ShouldBe(HttpStatusCode.UnprocessableEntity);
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
         (await ScalarAsync<long>("SELECT count(*) FROM document_files")).ShouldBe(0);
         (await ScalarAsync<long>("SELECT count(*) FROM outbox_messages")).ShouldBe(0);
         var storage = Factory.Services.GetRequiredService<DocRag.Ingestion.Application.Abstractions.IObjectStorage>();
@@ -91,7 +91,7 @@ public class UploadBehaviourTests(InfrastructureFixture infrastructure) : E2ETes
 
         var second = await UploadAsync(client, document, version, "%PDF-1.4\nother content\n"u8.ToArray());
 
-        second.StatusCode.ShouldBe(HttpStatusCode.Conflict);
+        second.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
         (await ScalarAsync<long>("SELECT count(*) FROM document_files")).ShouldBe(1);
         (await ScalarAsync<long>("SELECT count(*) FROM outbox_messages")).ShouldBe(1);
     }
@@ -110,7 +110,7 @@ public class UploadBehaviourTests(InfrastructureFixture infrastructure) : E2ETes
         gate.SetResult();
         var firstResponse = await first;
 
-        second.StatusCode.ShouldBe(HttpStatusCode.Conflict);
+        second.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
         firstResponse.StatusCode.ShouldBe(HttpStatusCode.Created);
         (await ScalarAsync<long>("SELECT count(*) FROM document_files")).ShouldBe(1);
         (await ScalarAsync<long>("SELECT count(*) FROM outbox_messages")).ShouldBe(1);
@@ -124,7 +124,7 @@ public class UploadBehaviourTests(InfrastructureFixture infrastructure) : E2ETes
         var responses = await Task.WhenAll(Enumerable.Range(0, 8).Select(_ => UploadAsync(client, document, version, PdfBytes)));
 
         responses.Count(r => r.StatusCode == HttpStatusCode.Created).ShouldBe(1);
-        responses.Where(r => r.StatusCode != HttpStatusCode.Created).ShouldAllBe(r => r.StatusCode == HttpStatusCode.Conflict);
+        responses.Where(r => r.StatusCode != HttpStatusCode.Created).ShouldAllBe(r => r.StatusCode == HttpStatusCode.BadRequest);
         (await ScalarAsync<long>("SELECT count(*) FROM document_files")).ShouldBe(1);
         (await ScalarAsync<long>("SELECT count(*) FROM outbox_messages")).ShouldBe(1);
     }
@@ -166,14 +166,14 @@ public class UploadBehaviourTests(InfrastructureFixture infrastructure) : E2ETes
     }
 
     [Fact]
-    public async Task Should_ReturnConflict_When_TheSameKeyIsUsedWithDifferentBytes()
+    public async Task Should_ReturnBadRequest_When_TheSameKeyIsUsedWithDifferentBytes()
     {
         var (client, document, version) = await NewVersionAsync();
         await UploadAsync(client, document, version, PdfBytes, idempotencyKey: "upload-2");
 
         var different = await UploadAsync(client, document, version, "%PDF-1.4\ndifferent\n"u8.ToArray(), idempotencyKey: "upload-2");
 
-        different.StatusCode.ShouldBe(HttpStatusCode.Conflict);
+        different.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
         (await ScalarAsync<long>("SELECT count(*) FROM outbox_messages")).ShouldBe(1);
     }
 
@@ -220,7 +220,7 @@ public class UploadLimitTests(InfrastructureFixture infrastructure) : E2ETestBas
     };
 
     [Fact]
-    public async Task Should_ReturnPayloadTooLargeAndStoreNothing_When_ChunkedBodyExceedsTheLimit()
+    public async Task Should_ReturnBadRequestAndStoreNothing_When_ChunkedBodyExceedsTheLimit()
     {
         var client = Client();
         var document = await CreateDocumentAsync(client);
@@ -229,7 +229,7 @@ public class UploadLimitTests(InfrastructureFixture infrastructure) : E2ETestBas
 
         var response = await UploadAsync(client, document, version, big);
 
-        response.StatusCode.ShouldBe(HttpStatusCode.RequestEntityTooLarge);
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
         response.Content.Headers.ContentType!.MediaType.ShouldBe("application/problem+json");
         (await ScalarAsync<long>("SELECT count(*) FROM document_files")).ShouldBe(0);
         (await ScalarAsync<string>("SELECT ingestion_status FROM document_versions")).ShouldBe("upload_failed");

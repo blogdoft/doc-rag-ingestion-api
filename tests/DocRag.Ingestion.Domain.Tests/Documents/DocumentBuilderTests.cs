@@ -41,7 +41,7 @@ public class DocumentBuilderTests
         var result = builder.Build(DocumentTestData.Now);
 
         result.IsFailure.ShouldBeTrue();
-        result.Failure.Code.ShouldBe("422-document-invalid");
+        result.Failure.Code.ShouldBe("400-document-invalid");
         result.Failure.Message.ShouldContain("title is required");
     }
 

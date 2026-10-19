@@ -26,12 +26,10 @@ public sealed class VersionsController(VersionService versions) : ControllerBase
     /// <param name="idempotencyKey">Optional safe-retry key.</param>
     /// <param name="cancellationToken">Propagates request abort.</param>
     /// <response code="201">Version created.</response>
-    /// <response code="400">Malformed JSON or invalid field; see <c>errors</c>.</response>
+    /// <response code="400">Malformed JSON, invalid field, violated business rule (e.g. <c>effectiveTo</c> before <c>effectiveFrom</c>), duplicate label or conflicting idempotency key; see <c>errors</c>.</response>
     /// <response code="401">Missing or invalid token. No body.</response>
     /// <response code="403">Token lacks the write scope. No body.</response>
     /// <response code="404">Document not found. No body.</response>
-    /// <response code="409">The label already exists for this document, or the idempotency key conflicts.</response>
-    /// <response code="422">Business rule violated (e.g. <c>effectiveTo</c> before <c>effectiveFrom</c>).</response>
     [HttpPost]
     [Authorize(AuthenticationExtensions.WritePolicy)]
     [RequestSizeLimit(RequestLimits.JsonBodyBytes)]
@@ -41,8 +39,6 @@ public sealed class VersionsController(VersionService versions) : ControllerBase
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity, "application/problem+json")]
     public async Task<IActionResult> CreateAsync(
         Guid documentId,
         [FromBody] CreateVersionRequest request,

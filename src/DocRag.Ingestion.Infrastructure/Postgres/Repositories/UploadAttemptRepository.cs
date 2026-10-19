@@ -91,7 +91,7 @@ internal sealed class UploadAttemptRepository(DbSession session) : RepositoryBas
         }
         catch (PostgresException ex) when (ex.SqlState == UniqueViolation)
         {
-            return new Failure("409-upload-in-progress", "Another upload is already in progress for this version.");
+            return new Failure("400-upload-in-progress", "Another upload is already in progress for this version.");
         }
     }
 

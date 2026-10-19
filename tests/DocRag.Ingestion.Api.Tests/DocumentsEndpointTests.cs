@@ -148,7 +148,7 @@ public class DocumentsEndpointTests : IClassFixture<ApiFactory>
     {
         var response = await _client.PostAsync("/api/v1/documents", new StringContent("title=x", Encoding.UTF8, "application/x-www-form-urlencoded"));
 
-        response.StatusCode.ShouldBe(HttpStatusCode.UnsupportedMediaType);
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
         response.Content.Headers.ContentType!.MediaType.ShouldBe("application/problem+json");
     }
 
@@ -188,16 +188,16 @@ public class DocumentsEndpointTests : IClassFixture<ApiFactory>
     }
 
     [Fact]
-    public async Task Should_ReturnPreconditionRequired_When_PatchHasNoIfMatch()
+    public async Task Should_ReturnBadRequest_When_PatchHasNoIfMatch()
     {
         var response = await _client.PatchAsync($"/api/v1/documents/{Guid.NewGuid()}", MergePatch("""{"description":"x"}"""));
 
-        response.StatusCode.ShouldBe((HttpStatusCode)428);
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
         response.Content.Headers.ContentType!.MediaType.ShouldBe("application/problem+json");
     }
 
     [Fact]
-    public async Task Should_ReturnPreconditionFailed_When_PatchEtagIsStale()
+    public async Task Should_ReturnBadRequest_When_PatchEtagIsStale()
     {
         var document = ExistingDocument();
         _factory.Documents.GetAsync(document.PublicId, Arg.Any<CancellationToken>()).Returns(document);
@@ -206,7 +206,7 @@ public class DocumentsEndpointTests : IClassFixture<ApiFactory>
 
         var response = await _client.SendAsync(request);
 
-        response.StatusCode.ShouldBe(HttpStatusCode.PreconditionFailed);
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
     }
 
     [Fact]

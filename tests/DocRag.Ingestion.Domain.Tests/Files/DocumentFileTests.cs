@@ -28,7 +28,7 @@ public class DocumentFileTests
         var result = Create(size);
 
         result.IsFailure.ShouldBeTrue();
-        result.Failure.Code.ShouldBe("422-file-empty");
+        result.Failure.Code.ShouldBe("400-file-empty");
     }
 
     [Theory]
@@ -39,6 +39,6 @@ public class DocumentFileTests
         var result = Create(sha: sha);
 
         result.IsFailure.ShouldBeTrue();
-        result.Failure.Code.ShouldBe("422-file-sha256-invalid");
+        result.Failure.Code.ShouldBe("400-file-sha256-invalid");
     }
 }

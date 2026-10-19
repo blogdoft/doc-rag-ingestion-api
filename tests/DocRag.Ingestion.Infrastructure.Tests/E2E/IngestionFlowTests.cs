@@ -56,7 +56,7 @@ public class IngestionFlowTests(InfrastructureFixture infrastructure) : E2ETestB
     }
 
     [Fact]
-    public async Task Should_ReturnConflict_When_LabelRepeatsInTheSameDocument()
+    public async Task Should_ReturnBadRequest_When_LabelRepeatsInTheSameDocument()
     {
         var client = Client();
         var documentId = await CreateDocumentAsync(client);
@@ -64,7 +64,7 @@ public class IngestionFlowTests(InfrastructureFixture infrastructure) : E2ETestB
 
         var duplicate = await client.PostAsJsonAsync($"/api/v1/documents/{documentId}/versions", new { label = "4.00" });
 
-        duplicate.StatusCode.ShouldBe(HttpStatusCode.Conflict);
+        duplicate.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
         duplicate.Content.Headers.ContentType!.MediaType.ShouldBe("application/problem+json");
     }
 
@@ -92,10 +92,10 @@ public class IngestionFlowTests(InfrastructureFixture infrastructure) : E2ETestB
         var stale = await Patch(client, documentId, "\"1\"", """{"description":"second"}""");
         var current = await Patch(client, documentId, first.Headers.ETag!.Tag, """{"description":"third","metadata":{"publisher":null,"extra":1}}""");
 
-        missing.StatusCode.ShouldBe((HttpStatusCode)428);
+        missing.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
         first.StatusCode.ShouldBe(HttpStatusCode.OK);
         first.Headers.ETag!.Tag.ShouldBe("\"2\"");
-        stale.StatusCode.ShouldBe(HttpStatusCode.PreconditionFailed);
+        stale.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
         current.StatusCode.ShouldBe(HttpStatusCode.OK);
         var body = await ReadAsync(current);
         body.GetProperty("description").GetString().ShouldBe("third");
@@ -111,7 +111,7 @@ public class IngestionFlowTests(InfrastructureFixture infrastructure) : E2ETestB
         var responses = await Task.WhenAll(Enumerable.Range(0, 8).Select(i => Patch(client, documentId, "\"1\"", $$"""{"description":"writer-{{i}}"}""")));
 
         responses.Count(r => r.StatusCode == HttpStatusCode.OK).ShouldBe(1);
-        responses.Count(r => r.StatusCode == HttpStatusCode.PreconditionFailed).ShouldBe(7);
+        responses.Count(r => r.StatusCode == HttpStatusCode.BadRequest).ShouldBe(7);
         (await ScalarAsync<long>("SELECT revision FROM documents")).ShouldBe(2);
     }
 
@@ -128,7 +128,7 @@ public class IngestionFlowTests(InfrastructureFixture infrastructure) : E2ETestB
     }
 
     [Fact]
-    public async Task Should_ReturnConflict_When_TheKeyIsReusedWithDifferentContent()
+    public async Task Should_ReturnBadRequest_When_TheKeyIsReusedWithDifferentContent()
     {
         var client = Client();
         await CreateDocumentAsync(client, "Idem", "create-2");
@@ -140,7 +140,7 @@ public class IngestionFlowTests(InfrastructureFixture infrastructure) : E2ETestB
 
         var response = await client.SendAsync(request);
 
-        response.StatusCode.ShouldBe(HttpStatusCode.Conflict);
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
     }
 
     [Fact]

@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.WebUtilities;
 namespace DocRag.Ingestion.Api.Extensions;
 
 /// <summary>
-/// Endpoint routing answers a non-matching <c>Content-Type</c> (<c>415</c>), method (<c>405</c>) or
+/// Endpoint routing answers a non-matching <c>Content-Type</c> (reported as <c>400</c>), method (<c>405</c>) or
 /// <c>Accept</c> (<c>406</c>) with a bare status before MVC runs. These client errors must still
 /// carry the standard problem body, so they are completed here.
 /// </summary>
@@ -14,7 +14,7 @@ public static class ClientErrorProblemExtensions
 {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
-    /// <summary>Adds <c>application/problem+json</c> bodies to bare 405, 406 and 415 responses.</summary>
+    /// <summary>Adds <c>application/problem+json</c> bodies to bare 405, 406 and 415 responses (the latter rewritten to 400).</summary>
     /// <param name="app">The web application.</param>
     /// <returns>The same <paramref name="app"/>, for chaining.</returns>
     public static WebApplication UseClientErrorProblems(this WebApplication app)
@@ -28,6 +28,12 @@ public static class ClientErrorProblemExtensions
                 return;
             }
 
+            if (status == StatusCodes.Status415UnsupportedMediaType)
+            {
+                status = StatusCodes.Status400BadRequest;
+                http.Response.StatusCode = status;
+            }
+
             var problem = new ProblemDetails
             {
                 Type = $"https://httpstatuses.io/{status}",
@@ -35,7 +41,7 @@ public static class ClientErrorProblemExtensions
                 Status = status,
                 Detail = status switch
                 {
-                    StatusCodes.Status415UnsupportedMediaType => "The Content-Type of the request is not accepted by this operation.",
+                    StatusCodes.Status400BadRequest => "The Content-Type of the request is not accepted by this operation.",
                     StatusCodes.Status406NotAcceptable => "The server cannot produce a response matching the Accept header.",
                     _ => "The HTTP method is not allowed for this resource.",
                 },

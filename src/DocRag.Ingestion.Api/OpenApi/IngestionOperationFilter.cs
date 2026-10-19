@@ -39,7 +39,7 @@ internal sealed class IngestionOperationFilter : IOperationFilter
             if (ifMatch is not null)
             {
                 ifMatch.Required = true;
-                ifMatch.Description = "Current ETag of the document (quotes included), obtained from a previous GET or PATCH. Missing → 428; stale → 412.";
+                ifMatch.Description = "Current ETag of the document (quotes included), obtained from a previous GET or PATCH. A missing or stale value is answered with 400.";
                 ifMatch.Example = System.Text.Json.Nodes.JsonValue.Create("\"3\"");
             }
         }

@@ -91,7 +91,7 @@ public sealed class Document
     /// <summary>Applies a JSON Merge Patch, bumping the revision when it succeeds.</summary>
     /// <param name="patch">The patch to apply.</param>
     /// <param name="now">Current instant.</param>
-    /// <returns>Success, or a <c>422</c> failure when the patched state would be invalid.</returns>
+    /// <returns>Success, or a <c>400</c> failure when the patched state would be invalid.</returns>
     public Result ApplyPatch(DocumentPatch patch, DateTimeOffset now)
     {
         var metadata = Metadata;
@@ -113,7 +113,7 @@ public sealed class Document
         var validation = new DocumentFieldsValidator().Validate(fields);
         if (!validation.IsValid)
         {
-            return ValidationFailures.From("422-document-invalid", validation);
+            return ValidationFailures.From("400-document-invalid", validation);
         }
 
         Title = fields.Title!;

@@ -31,13 +31,13 @@ public static class SwaggerExtensions
         **Authentication:** Bearer JWT.
 
         **Idempotency:** every POST accepts `Idempotency-Key` (up to 128 characters). The same key with
-        the same content replays the original result; different content returns `409`. Keys are scoped
+        the same content replays the original result; different content returns `400`. Keys are scoped
         per operation.
 
         **Formats:** JSON bodies use `application/json` (PATCH uses `application/merge-patch+json`) with
         camelCase properties; unknown properties are rejected. Uploads are raw binary bodies.
 
-        **Errors:** `400`, `409`, `412`, `413`, `415`, `422`, `428` and `429` are RFC 9457
+        **Errors:** `400` and `429` are RFC 9457
         `application/problem+json` with a `traceId`. `401`, `403`, `404` and `5xx` have no body.
         """;
 

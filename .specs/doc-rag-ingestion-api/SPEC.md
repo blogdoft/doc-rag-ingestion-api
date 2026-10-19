@@ -89,7 +89,7 @@ Definir convenção snake_case, `timestamptz` em UTC, constraints e FKs. Não us
 ## 6. Fluxo de upload e consistência
 
 1. Autenticar, autorizar e validar existência da versão e estado permitido.
-2. Reservar tentativa de upload com exclusão mútua por versão, associar idempotency key e TTL/lease; responder `409` a concorrência conflitante.
+2. Reservar tentativa de upload com exclusão mútua por versão, associar idempotency key e TTL/lease; responder `400` a concorrência conflitante.
 3. Abrir stream do corpo HTTP e transmitir incrementalmente ao Garage via cliente S3; computar SHA-256 e tamanho com contador, aplicar cancelamento e limite de bytes. SDK S3 pode exigir multipart upload interno para objetos grandes: usar partes de tamanho limitado, com memória constante; abortar multipart incompleto em falhas.
 4. Verificar assinatura/formato real, hash esperado opcional, tamanho e integridade. Para inspeção de magic bytes, utilizar apenas pequeno buffer inicial. Não confiar em `Content-Type` nem em nome fornecido.
 5. Finalizar objeto temporário e confirmar existência/atributos no Garage. Adotar chave opaca gerada pelo servidor (`document/version/file-id`), sem interpolar nomes originais. O objeto só deve ser considerado publicável após confirmação de commit do banco.
@@ -149,15 +149,15 @@ Instrumentar OpenTelemetry (trace IDs HTTP, operações DB, S3 e Kafka), métric
 Usar xUnit, NSubstitute e Shouldly; nomear testes `Should_<Expected>_When_<Scenario>`. Testcontainers para PostgreSQL, Kafka e Garage quando viável (ou ambiente de integração equivalente). Cobrir:
 
 1. Cadastro e consulta com metadata arbitrário válido e validação de campos obrigatórios.
-2. Duas versões com labels iguais no mesmo documento retornam `409`; labels iguais em documentos diferentes são permitidas.
-3. PATCH com ETag antigo retorna `412`; sem If-Match retorna `428`.
+2. Duas versões com labels iguais no mesmo documento retornam `400`; labels iguais em documentos diferentes são permitidas.
+3. PATCH com ETag antigo retorna `400`; sem If-Match retorna `400`.
 4. Upload de arquivo grande mantém memória aproximadamente constante em relação ao tamanho do arquivo; verificar com testes de carga e medição real.
 5. Upload sem `Content-Length`, streaming por chunks e cancelamento do cliente funcionam.
 6. MIME proibido, assinatura inválida, arquivo vazio, tamanho excessivo e SHA-256 divergente são rejeitados com códigos definidos.
 7. Dois uploads concorrentes da mesma versão não produzem dois arquivos concluídos.
 8. Upload concluído grava arquivo, versão e outbox na mesma transação; falha do banco não produz evento consumível.
 9. Falha do Garage não cria `uploaded` nem evento; tentativa é recuperável.
-10. Repetição com mesma idempotency key e conteúdo devolve resultado original; conteúdo diferente gera `409`.
+10. Repetição com mesma idempotency key e conteúdo devolve resultado original; conteúdo diferente gera `400`.
 11. Dispatcher retenta publicação Kafka e consumidores conseguem deduplicar por `eventId`.
 12. Crash após publicação e antes de marcar outbox não provoca perda de evento (duplicação é permitida).
 13. Processo de reconciliação identifica e trata objetos órfãos, leases expirados e multipart abandonados.

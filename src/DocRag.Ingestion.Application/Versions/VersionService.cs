@@ -44,7 +44,7 @@ public sealed class VersionService(
     /// <summary>Registers a version of a document.</summary>
     /// <param name="command">The command.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>The version, or a <c>404</c>/<c>409</c>/<c>422</c> failure.</returns>
+    /// <returns>The version, or a <c>400</c>/<c>404</c> failure.</returns>
     public async Task<Result<DocumentVersion>> CreateAsync(CreateVersionCommand command, CancellationToken cancellationToken)
     {
         var document = await documents.GetAsync(command.DocumentId, cancellationToken);

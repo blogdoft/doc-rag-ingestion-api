@@ -45,20 +45,20 @@ public class UploadEndpointTests : IClassFixture<ApiFactory>
     }
 
     [Fact]
-    public async Task Should_ReturnPayloadTooLargeProblem_When_DeclaredLengthExceedsTheLimit()
+    public async Task Should_ReturnBadRequestProblem_When_DeclaredLengthExceedsTheLimit()
     {
         var response = await _client.SendAsync(Upload(new byte[2048]));
 
-        response.StatusCode.ShouldBe(HttpStatusCode.RequestEntityTooLarge);
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
         response.Content.Headers.ContentType!.MediaType.ShouldBe("application/problem+json");
     }
 
     [Fact]
-    public async Task Should_ReturnUnsupportedMediaTypeProblem_When_ContentTypeIsNotEnabled()
+    public async Task Should_ReturnBadRequestProblem_When_ContentTypeIsNotEnabled()
     {
         var response = await _client.SendAsync(Upload([1, 2, 3], "application/zip"));
 
-        response.StatusCode.ShouldBe(HttpStatusCode.UnsupportedMediaType);
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
         response.Content.Headers.ContentType!.MediaType.ShouldBe("application/problem+json");
     }
 

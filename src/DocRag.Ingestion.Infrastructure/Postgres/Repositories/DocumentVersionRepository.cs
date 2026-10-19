@@ -57,7 +57,7 @@ internal sealed class DocumentVersionRepository(DbSession session) : RepositoryB
         }
         catch (PostgresException ex) when (ex.SqlState == UniqueViolation && ex.ConstraintName == "ux_document_versions_label")
         {
-            return new Failure("409-version-label-exists", $"A version labelled '{version.Label}' already exists for this document.");
+            return new Failure("400-version-label-exists", $"A version labelled '{version.Label}' already exists for this document.");
         }
     }
 

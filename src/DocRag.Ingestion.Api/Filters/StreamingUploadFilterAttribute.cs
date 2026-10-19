@@ -9,7 +9,7 @@ namespace DocRag.Ingestion.Api.Filters;
 
 /// <summary>
 /// Prepares an endpoint that streams a raw request body: removes Kestrel's body-size limit (the
-/// application enforces the configured upload limit itself, as a clean 413 problem), disables the
+/// application enforces the configured upload limit itself, as a clean 400 problem), disables the
 /// minimum data rate so slow clients are not cut off, and rejects an oversized declared
 /// <c>Content-Length</c> before any work is done.
 /// </summary>
@@ -25,8 +25,8 @@ public sealed class StreamingUploadFilterAttribute : Attribute, IAsyncActionFilt
         if (http.Request.ContentLength > maxBytes)
         {
             context.Result = ProblemResults.Build(
-                StatusCodes.Status413PayloadTooLarge,
-                "Payload Too Large",
+                StatusCodes.Status400BadRequest,
+                "Bad Request",
                 $"The upload exceeds the limit of {maxBytes} bytes.",
                 http);
             return Task.CompletedTask;

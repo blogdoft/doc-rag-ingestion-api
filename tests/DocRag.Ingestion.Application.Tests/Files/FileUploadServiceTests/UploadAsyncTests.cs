@@ -60,11 +60,11 @@ public class UploadAsyncTests : BaseFileUploadServiceTests
     }
 
     [Fact]
-    public async Task Should_ReturnUnsupportedMediaType_When_ContentTypeIsNotAllowed()
+    public async Task Should_ReturnBadRequest_When_ContentTypeIsNotAllowed()
     {
         var result = await Service.UploadAsync(Command(contentType: "application/zip"), CancellationToken.None);
 
-        result.Failure.Code.ShouldBe("415-content-type-not-allowed");
+        result.Failure.Code.ShouldBe("400-content-type-not-allowed");
         await UnitOfWork.DidNotReceive().BeginAsync(Arg.Any<CancellationToken>());
     }
 
@@ -93,41 +93,41 @@ public class UploadAsyncTests : BaseFileUploadServiceTests
     {
         var result = await Service.UploadAsync(Command(body: []), CancellationToken.None);
 
-        result.Failure.Code.ShouldBe("422-file-empty");
+        result.Failure.Code.ShouldBe("400-file-empty");
         await Storage.DidNotReceiveWithAnyArgs().PutAsync(default!, default!, default!, default);
         await Attempts.Received(1).FinishAsync(Arg.Is<UploadAttempt>(a => a.Status == UploadAttemptStatus.Failed), Arg.Any<CancellationToken>());
         Version.Status.ShouldBe(IngestionStatus.UploadFailed);
     }
 
     [Fact]
-    public async Task Should_ReturnUnsupportedMediaType_When_SignatureDoesNotMatchTheDeclaredType()
+    public async Task Should_ReturnBadRequest_When_SignatureDoesNotMatchTheDeclaredType()
     {
         var result = await Service.UploadAsync(Command(body: "<html>not a pdf</html>"u8.ToArray()), CancellationToken.None);
 
-        result.Failure.Code.ShouldBe("415-file-signature-mismatch");
+        result.Failure.Code.ShouldBe("400-file-signature-mismatch");
         await Storage.DidNotReceiveWithAnyArgs().PutAsync(default!, default!, default!, default);
         await Outbox.DidNotReceiveWithAnyArgs().AddAsync(default!, default);
     }
 
     [Fact]
-    public async Task Should_ReturnPayloadTooLargeAndDeleteTheObject_When_BodyExceedsTheLimit()
+    public async Task Should_ReturnBadRequestAndDeleteTheObject_When_BodyExceedsTheLimit()
     {
         Options.MaxBytes = 10;
 
         var result = await Service.UploadAsync(Command(), CancellationToken.None);
 
-        result.Failure.Code.ShouldBe("413-file-too-large");
+        result.Failure.Code.ShouldBe("400-file-too-large");
         await Storage.Received(1).DeleteAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
         await Outbox.DidNotReceiveWithAnyArgs().AddAsync(default!, default);
         await Files.DidNotReceiveWithAnyArgs().InsertAsync(default!, default);
     }
 
     [Fact]
-    public async Task Should_ReturnUnprocessableAndRemoveTheObject_When_Sha256DiffersFromTheAnnouncedOne()
+    public async Task Should_ReturnBadRequestAndRemoveTheObject_When_Sha256DiffersFromTheAnnouncedOne()
     {
         var result = await Service.UploadAsync(Command(expectedSha256: new string('0', 64)), CancellationToken.None);
 
-        result.Failure.Code.ShouldBe("422-checksum-mismatch");
+        result.Failure.Code.ShouldBe("400-checksum-mismatch");
         await Storage.Received(1).DeleteAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
         await Outbox.DidNotReceiveWithAnyArgs().AddAsync(default!, default);
     }
@@ -167,13 +167,13 @@ public class UploadAsyncTests : BaseFileUploadServiceTests
     }
 
     [Fact]
-    public async Task Should_ReturnConflictWithoutStoring_When_AnotherUploadIsActive()
+    public async Task Should_ReturnBadRequestWithoutStoring_When_AnotherUploadIsActive()
     {
         Attempts.HasActiveAsync(Arg.Any<long>(), Arg.Any<CancellationToken>()).Returns(true);
 
         var result = await Service.UploadAsync(Command(), CancellationToken.None);
 
-        result.Failure.Code.ShouldBe("409-upload-in-progress");
+        result.Failure.Code.ShouldBe("400-upload-in-progress");
         await Storage.DidNotReceiveWithAnyArgs().PutAsync(default!, default!, default!, default);
         await UnitOfWork.DidNotReceive().CommitAsync(Arg.Any<CancellationToken>());
     }
@@ -190,13 +190,13 @@ public class UploadAsyncTests : BaseFileUploadServiceTests
     }
 
     [Fact]
-    public async Task Should_ReturnConflictAndNeverRegister_When_TheLeaseExpiredBeforeCompletion()
+    public async Task Should_ReturnBadRequestAndNeverRegister_When_TheLeaseExpiredBeforeCompletion()
     {
         Attempts.FinishAsync(Arg.Is<UploadAttempt>(a => a.Status == UploadAttemptStatus.Completed), Arg.Any<CancellationToken>()).Returns(false);
 
         var result = await Service.UploadAsync(Command(), CancellationToken.None);
 
-        result.Failure.Code.ShouldBe("409-upload-attempt-not-active");
+        result.Failure.Code.ShouldBe("400-upload-attempt-not-active");
         await Files.DidNotReceiveWithAnyArgs().InsertAsync(default!, default);
         await Outbox.DidNotReceiveWithAnyArgs().AddAsync(default!, default);
         await Storage.Received(1).DeleteAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
@@ -255,7 +255,7 @@ public class UploadAsyncTests : BaseFileUploadServiceTests
     }
 
     [Fact]
-    public async Task Should_ReturnConflictAndNoEvent_When_KeyWasCompletedWithDifferentBytes()
+    public async Task Should_ReturnBadRequestAndNoEvent_When_KeyWasCompletedWithDifferentBytes()
     {
         var original = TestData.File(Version, new string('c', 64));
         IdempotencyStore.TryReserveAsync(Arg.Any<IdempotencyRequest>(), Arg.Any<CancellationToken>())
@@ -264,7 +264,7 @@ public class UploadAsyncTests : BaseFileUploadServiceTests
 
         var result = await Service.UploadAsync(Command(idempotencyKey: "up-1"), CancellationToken.None);
 
-        result.Failure.Code.ShouldBe("409-idempotency-key-reused");
+        result.Failure.Code.ShouldBe("400-idempotency-key-reused");
         await Outbox.DidNotReceiveWithAnyArgs().AddAsync(default!, default);
     }
 

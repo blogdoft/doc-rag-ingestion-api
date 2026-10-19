@@ -7,7 +7,7 @@ namespace DocRag.Ingestion.Api.Problems;
 
 /// <summary>
 /// Translates an application <see cref="Failure"/> into an HTTP result in one central place. The
-/// intended status is the leading number of <see cref="Failure.Code"/> (e.g. <c>409-upload-in-progress</c>).
+/// intended status is the leading number of <see cref="Failure.Code"/> (e.g. <c>400-upload-in-progress</c>).
 /// </summary>
 public static class FailureResults
 {

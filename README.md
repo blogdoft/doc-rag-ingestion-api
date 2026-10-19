@@ -132,7 +132,7 @@ to start on invalid values). Secrets always come from the environment or a secre
 | `Observability:*`, `OTEL_SERVICE_NAME` | `BlogDoFT.Libs.Api.OpenTelemetry` exporters (OTLP/Zipkin/Prometheus/console). |
 
 **Request body limits:** Kestrel's global limit equals `Upload:MaxBytes`; the JSON endpoints (create/patch
-document, create version) narrow it to 1 MiB with `[RequestSizeLimit]` and answer `413` as a problem document
+document, create version) narrow it to 1 MiB with `[RequestSizeLimit]` and answer `400` as a problem document
 beyond it. The global limit is deliberately not low: if an early rejection (an expired token, say) leaves a body
 larger than the limit unread, Kestrel cannot drain it and closes the connection, and a reverse proxy that is still
 sending the body then reports `502 Bad Gateway` instead of the real `401`/`403`.
@@ -184,7 +184,7 @@ bucket and a private object key - no tokens or pre-signed URLs.
   replayed body against the original; the body is drained (hashed, not stored) to do so.
 * **Objects are written directly to their final opaque key** (`document/version/fileId`) and become
   referenced only on commit - no copy step; unreferenced objects are reconciled.
-* **Leases are not renewed**: an upload slower than `Upload:LeaseMinutes` is rejected with 409 at the end.
+* **Leases are not renewed**: an upload slower than `Upload:LeaseMinutes` is rejected with 400 at the end.
   Size `LeaseMinutes` for the slowest expected transfer.
 * **Kafka is not part of readiness**: an unreachable broker grows the outbox backlog (metrics
   `docrag.outbox.pending`, `docrag.outbox.oldest_age`) without taking uploads down.
@@ -225,7 +225,7 @@ publish-then-crash redelivery and reconciliation.
 | `/health/ready` unhealthy right after start | Warm-up migrations still running (normal for a few seconds) or PostgreSQL unreachable. |
 | Readiness fails on `garage` | Bucket missing or key without permission: run `.eng/docker/garage/setup.sh` (dev) / ask the platform team (prod). The service never creates buckets. |
 | Upload returns `503` | Garage unreachable or credentials wrong; see the `Object storage failed` log with the attempt id. |
-| Upload returns `409 upload-in-progress` after a crash | The previous lease must expire (`Upload:LeaseMinutes`) or the reconciler must run; the worker does this every `Reconciliation:IntervalSeconds`. |
+| Upload returns `400 upload-in-progress` after a crash | The previous lease must expire (`Upload:LeaseMinutes`) or the reconciler must run; the worker does this every `Reconciliation:IntervalSeconds`. |
 | Upload stops at 1 GiB / hangs behind a proxy | Proxy body limit/timeouts/buffering (see above). |
 | Events not arriving | `docrag.outbox.pending` growing: worker not running or Kafka unreachable (`ALERT:` log lines). |
 | `401` on every call | Token audience/issuer/signature/expiry; the reason is only in the server log. |

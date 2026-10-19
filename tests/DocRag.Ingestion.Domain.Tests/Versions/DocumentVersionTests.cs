@@ -29,14 +29,14 @@ public class DocumentVersionTests
     }
 
     [Fact]
-    public void Should_ReturnConflict_When_AnotherAttemptIsActive()
+    public void Should_ReturnBadRequest_When_AnotherAttemptIsActive()
     {
         var version = NewVersion();
 
         var result = version.StartUpload(activeAttemptExists: true, Now);
 
         result.IsFailure.ShouldBeTrue();
-        result.Failure.Code.ShouldBe("409-upload-in-progress");
+        result.Failure.Code.ShouldBe("400-upload-in-progress");
         version.Status.ShouldBe(IngestionStatus.AwaitingUpload);
     }
 
@@ -61,7 +61,7 @@ public class DocumentVersionTests
     }
 
     [Fact]
-    public void Should_ReturnConflict_When_UploadStartsAfterTheFileWasStored()
+    public void Should_ReturnBadRequest_When_UploadStartsAfterTheFileWasStored()
     {
         var version = NewVersion();
         version.StartUpload(false, Now);
@@ -70,11 +70,11 @@ public class DocumentVersionTests
         var result = version.StartUpload(false, Now);
 
         result.IsFailure.ShouldBeTrue();
-        result.Failure.Code.ShouldBe("409-version-already-uploaded");
+        result.Failure.Code.ShouldBe("400-version-already-uploaded");
     }
 
     [Fact]
-    public void Should_ReturnConflictAndRecordNoEvent_When_MarkedUploadedWithoutStarting()
+    public void Should_ReturnBadRequestAndRecordNoEvent_When_MarkedUploadedWithoutStarting()
     {
         var version = NewVersion();
 

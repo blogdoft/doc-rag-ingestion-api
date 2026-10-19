@@ -89,7 +89,7 @@ public class ReconciliationTests(InfrastructureFixture infrastructure) : E2ETest
         gate.SetResult();
         var response = await running;
 
-        response.StatusCode.ShouldBe(System.Net.HttpStatusCode.Conflict);
+        response.StatusCode.ShouldBe(System.Net.HttpStatusCode.BadRequest);
         (await ScalarAsync<long>("SELECT count(*) FROM document_files")).ShouldBe(0);
         (await ScalarAsync<long>("SELECT count(*) FROM outbox_messages")).ShouldBe(0);
     }

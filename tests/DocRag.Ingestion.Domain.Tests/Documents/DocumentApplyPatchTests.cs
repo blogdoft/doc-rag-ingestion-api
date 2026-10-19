@@ -46,7 +46,7 @@ public class DocumentApplyPatchTests
         var result = document.ApplyPatch(patch, Later);
 
         result.IsFailure.ShouldBeTrue();
-        result.Failure.Code.ShouldBe("422-document-invalid");
+        result.Failure.Code.ShouldBe("400-document-invalid");
         document.Title.ShouldBe(originalTitle);
         document.Revision.ShouldBe(1);
     }

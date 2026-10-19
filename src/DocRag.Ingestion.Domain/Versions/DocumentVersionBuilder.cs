@@ -63,7 +63,7 @@ public sealed class DocumentVersionBuilder
 
     /// <summary>Validates the collected state and builds the version.</summary>
     /// <param name="now">Current instant.</param>
-    /// <returns>The version, or a <c>422</c> failure describing the violated rules.</returns>
+    /// <returns>The version, or a <c>400</c> failure describing the violated rules.</returns>
     public Result<DocumentVersion> Build(DateTimeOffset now)
     {
         if (_publicId == Guid.Empty || _documentId <= 0)
@@ -74,7 +74,7 @@ public sealed class DocumentVersionBuilder
         var validation = _validator.Validate(this);
         if (!validation.IsValid)
         {
-            return new Failure("422-version-invalid", string.Join(" ", validation.Errors.Select(e => e.ErrorMessage)));
+            return new Failure("400-version-invalid", string.Join(" ", validation.Errors.Select(e => e.ErrorMessage)));
         }
 
         return DocumentVersion.Create(

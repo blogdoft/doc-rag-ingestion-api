@@ -8,7 +8,7 @@ namespace DocRag.Ingestion.Application.Idempotency;
 /// <summary>What to do after consulting the idempotency store.</summary>
 /// <param name="Request">The reservation request, or <see langword="null"/> when the client sent no key.</param>
 /// <param name="ReplayResourceId">Resource produced by the original request, when this is a replay.</param>
-/// <param name="Failure">A <c>409</c> failure when the key cannot be used.</param>
+/// <param name="Failure">A <c>400</c> failure when the key cannot be used.</param>
 public sealed record IdempotencyDecision(IdempotencyRequest? Request, Guid? ReplayResourceId, Failure? Failure)
 {
     /// <summary>Gets a value indicating whether the original result must be returned instead of executing again.</summary>
@@ -56,7 +56,7 @@ public sealed class IdempotencyGate(IIdempotencyStore store, IClock clock, IOpti
         if (!existing.Completed)
         {
             return new IdempotencyDecision(
-                request, null, new Failure("409-idempotency-key-in-progress", "A request with this Idempotency-Key is still being processed."));
+                request, null, new Failure("400-idempotency-key-in-progress", "A request with this Idempotency-Key is still being processed."));
         }
 
         if (request.Fingerprint is not null && existing.Fingerprint != request.Fingerprint)
@@ -68,7 +68,7 @@ public sealed class IdempotencyGate(IIdempotencyStore store, IClock clock, IOpti
     }
 
     /// <summary>Builds the failure used when a key is reused with different content.</summary>
-    /// <returns>A <c>409</c> failure.</returns>
+    /// <returns>A <c>400</c> failure.</returns>
     public static Failure KeyReused() =>
-        new("409-idempotency-key-reused", "This Idempotency-Key was already used with a different request.");
+        new("400-idempotency-key-reused", "This Idempotency-Key was already used with a different request.");
 }

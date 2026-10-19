@@ -36,7 +36,7 @@ public class DocumentVersionBuilderTests
         var result = builder.Build(Now);
 
         result.IsFailure.ShouldBeTrue();
-        result.Failure.Code.ShouldBe("422-version-invalid");
+        result.Failure.Code.ShouldBe("400-version-invalid");
         result.Failure.Message.ShouldContain("label is required");
     }
 

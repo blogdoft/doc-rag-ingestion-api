@@ -9,8 +9,8 @@ namespace DocRag.Ingestion.Api.Filters;
 /// Last-resort handler for exceptions escaping an action. Replies with a bare <c>500</c> so nothing
 /// about the failure leaks to the client; the full exception goes to the application log. Client
 /// disconnects are not errors, and a 4xx <see cref="BadHttpRequestException"/> raised by Kestrel while
-/// the body is read (for example <c>413</c> for a JSON body above the endpoint limit) is a client error
-/// answered with that status as a problem document.
+/// the body is read (for example a JSON body above the endpoint limit) is a client error
+/// answered with a <c>400</c> problem document.
 /// </summary>
 public sealed class UnhandledExceptionFilter(ILogger<UnhandledExceptionFilter> logger) : IExceptionFilter
 {
@@ -28,7 +28,7 @@ public sealed class UnhandledExceptionFilter(ILogger<UnhandledExceptionFilter> l
         if (context.Exception is BadHttpRequestException { StatusCode: >= StatusCodes.Status400BadRequest and < StatusCodes.Status500InternalServerError } badRequest)
         {
             logger.LogInformation("Request {Method} {Path} rejected with {Status}: {Reason}", context.HttpContext.Request.Method, context.HttpContext.Request.Path, badRequest.StatusCode, badRequest.Message);
-            context.Result = ProblemResults.Build(badRequest.StatusCode, ReasonPhrases.GetReasonPhrase(badRequest.StatusCode), badRequest.Message, context.HttpContext);
+            context.Result = ProblemResults.Build(StatusCodes.Status400BadRequest, ReasonPhrases.GetReasonPhrase(StatusCodes.Status400BadRequest), badRequest.Message, context.HttpContext);
             context.ExceptionHandled = true;
             return;
         }

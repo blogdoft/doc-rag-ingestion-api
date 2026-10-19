@@ -152,7 +152,7 @@ public sealed class DocumentService(
     /// <param name="expectedRevision">Revision parsed from <c>If-Match</c>, or <see langword="null"/> when absent.</param>
     /// <param name="patch">The patch.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>The updated document or a <c>404</c>/<c>412</c>/<c>422</c>/<c>428</c> failure.</returns>
+    /// <returns>The updated document or a <c>400</c>/<c>404</c> failure.</returns>
     public async Task<Result<Document>> PatchAsync(
         Guid documentId,
         long? expectedRevision,
@@ -161,7 +161,7 @@ public sealed class DocumentService(
     {
         if (expectedRevision is null)
         {
-            return new Failure("428-if-match-required", "The If-Match header is required.");
+            return new Failure("400-if-match-required", "The If-Match header is required.");
         }
 
         var document = await documents.GetAsync(documentId, cancellationToken);
@@ -194,5 +194,5 @@ public sealed class DocumentService(
     private static Failure NotFound() => new("404-document-not-found", "Document not found.");
 
     private static Failure StalePrecondition() =>
-        new("412-etag-mismatch", "The If-Match ETag does not match the current revision.");
+        new("400-etag-mismatch", "The If-Match ETag does not match the current revision.");
 }

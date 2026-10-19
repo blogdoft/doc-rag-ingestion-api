@@ -25,7 +25,7 @@ scripts/dev-token.sh                                            # local JWT
 - `src/DocRag.Ingestion.{Domain,Application,Infrastructure,Api,Worker}`; dependencies point inward
   (Domain <- Application <- Infrastructure/Api/Worker). Tests mirror it under `tests/`.
 - Domain: builders return `Result<T>` (BlogDoFT.Libs.ResultPattern + FluentValidation); failure codes start with the
-  intended HTTP status (`409-upload-in-progress`) and are translated centrally in `Api/Problems/FailureResults`.
+  intended HTTP status (`400-upload-in-progress`) and are translated centrally in `Api/Problems/FailureResults`.
 - Persistence is Dapper only (no EF Core): `*Table` row types, snake_case SQL, bigint PKs + public UUID v7,
   forward-only FluentMigrator migrations run as a warm-up task.
 - Never read `ConnectionStrings` eagerly in service registration (tests override configuration later); use factories.

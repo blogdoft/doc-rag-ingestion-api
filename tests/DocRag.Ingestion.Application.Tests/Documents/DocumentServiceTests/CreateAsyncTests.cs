@@ -25,14 +25,14 @@ public class CreateAsyncTests : BaseDocumentServiceTests
     }
 
     [Fact]
-    public async Task Should_ReturnUnprocessableAndNotTouchTheDatabase_When_DomainRejectsTheRequest()
+    public async Task Should_ReturnBadRequestAndNotTouchTheDatabase_When_DomainRejectsTheRequest()
     {
         var command = TestData.CreateDocumentCommand().Generate() with { Language = "not a tag" };
 
         var result = await Service.CreateAsync(command, CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();
-        result.Failure.Code.ShouldBe("422-document-invalid");
+        result.Failure.Code.ShouldBe("400-document-invalid");
         await Documents.DidNotReceiveWithAnyArgs().InsertAsync(default!, default);
         await UnitOfWork.DidNotReceive().BeginAsync(Arg.Any<CancellationToken>());
     }
@@ -74,7 +74,7 @@ public class CreateAsyncTests : BaseDocumentServiceTests
     }
 
     [Fact]
-    public async Task Should_ReturnConflict_When_KeyWasUsedWithDifferentContent()
+    public async Task Should_ReturnBadRequest_When_KeyWasUsedWithDifferentContent()
     {
         var command = TestData.CreateDocumentCommand(idempotencyKey: "key-1").Generate();
         IdempotencyStore.TryReserveAsync(Arg.Any<IdempotencyRequest>(), Arg.Any<CancellationToken>())
@@ -83,12 +83,12 @@ public class CreateAsyncTests : BaseDocumentServiceTests
         var result = await Service.CreateAsync(command, CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();
-        result.Failure.Code.ShouldBe("409-idempotency-key-reused");
+        result.Failure.Code.ShouldBe("400-idempotency-key-reused");
         await Documents.DidNotReceiveWithAnyArgs().InsertAsync(default!, default);
     }
 
     [Fact]
-    public async Task Should_ReturnConflict_When_TheSameKeyIsStillBeingProcessed()
+    public async Task Should_ReturnBadRequest_When_TheSameKeyIsStillBeingProcessed()
     {
         var command = TestData.CreateDocumentCommand(idempotencyKey: "key-1").Generate();
         IdempotencyStore.TryReserveAsync(Arg.Any<IdempotencyRequest>(), Arg.Any<CancellationToken>())
@@ -96,7 +96,7 @@ public class CreateAsyncTests : BaseDocumentServiceTests
 
         var result = await Service.CreateAsync(command, CancellationToken.None);
 
-        result.Failure.Code.ShouldBe("409-idempotency-key-in-progress");
+        result.Failure.Code.ShouldBe("400-idempotency-key-in-progress");
     }
 
     [Fact]

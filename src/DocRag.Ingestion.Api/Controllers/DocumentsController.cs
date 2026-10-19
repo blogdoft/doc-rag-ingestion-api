@@ -24,17 +24,15 @@ public sealed class DocumentsController(DocumentService documents) : ControllerB
     ///
     /// Send an <c>Idempotency-Key</c> (up to 128 characters) to retry safely: the same key with the
     /// same content returns the originally created document, the same key with different content
-    /// returns <c>409</c>. Keys are scoped per operation.
+    /// returns <c>400</c>. Keys are scoped per operation.
     /// </remarks>
     /// <param name="request">The document to register.</param>
     /// <param name="idempotencyKey">Optional safe-retry key.</param>
     /// <param name="cancellationToken">Propagates request abort.</param>
     /// <response code="201">Document registered; <c>Location</c> points to it and <c>ETag</c> carries its revision.</response>
-    /// <response code="400">Malformed JSON or invalid field; see <c>errors</c>.</response>
+    /// <response code="400">Malformed JSON, invalid field or violated business rule (e.g. metadata too large), or an idempotency key reused with different content or still being processed; see <c>errors</c>.</response>
     /// <response code="401">Missing or invalid token. No body.</response>
     /// <response code="403">Token lacks the write scope. No body.</response>
-    /// <response code="409">The idempotency key was reused with different content, or is still being processed.</response>
-    /// <response code="422">Well-formed but rejected by a business rule (e.g. metadata too large).</response>
     [HttpPost]
     [Authorize(AuthenticationExtensions.WritePolicy)]
     [RequestSizeLimit(RequestLimits.JsonBodyBytes)]
@@ -43,8 +41,6 @@ public sealed class DocumentsController(DocumentService documents) : ControllerB
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity, "application/problem+json")]
     public async Task<IActionResult> CreateAsync(
         [FromBody] CreateDocumentRequest request,
         [FromHeader(Name = "Idempotency-Key")][System.ComponentModel.DataAnnotations.StringLength(128, MinimumLength = 1)] string? idempotencyKey,
@@ -144,20 +140,17 @@ public sealed class DocumentsController(DocumentService documents) : ControllerB
     /// <c>metadata</c>, removes keys. <c>metadata</c> is merged recursively; <c>tags</c> is replaced.
     ///
     /// <c>If-Match</c> with the current ETag (quotes included) is mandatory to prevent lost updates:
-    /// missing header → <c>428</c>, stale ETag → <c>412</c>. Versions and files are never changed by this call.
+    /// missing header or stale ETag → <c>400</c>. Versions and files are never changed by this call.
     /// </remarks>
     /// <param name="documentId">Document identifier.</param>
     /// <param name="request">The merge patch.</param>
     /// <param name="ifMatch">ETag from a previous GET, e.g. <c>"3"</c>. Required.</param>
     /// <param name="cancellationToken">Propagates request abort.</param>
     /// <response code="200">Updated document with its new <c>ETag</c>.</response>
-    /// <response code="400">Malformed JSON or invalid field; see <c>errors</c>.</response>
+    /// <response code="400">Malformed JSON, invalid field or a patched state that violates a business rule, a missing <c>If-Match</c> header or a stale ETag; see <c>errors</c>.</response>
     /// <response code="401">Missing or invalid token. No body.</response>
     /// <response code="403">Token lacks the write scope. No body.</response>
     /// <response code="404">Not found. No body.</response>
-    /// <response code="412">The ETag does not match the current revision.</response>
-    /// <response code="422">The patched state violates a business rule.</response>
-    /// <response code="428">The <c>If-Match</c> header is missing.</response>
     [HttpPatch("{documentId:guid}")]
     [Authorize(AuthenticationExtensions.WritePolicy)]
     [RequestSizeLimit(RequestLimits.JsonBodyBytes)]
@@ -167,9 +160,6 @@ public sealed class DocumentsController(DocumentService documents) : ControllerB
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status412PreconditionFailed, "application/problem+json")]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity, "application/problem+json")]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status428PreconditionRequired, "application/problem+json")]
     public async Task<IActionResult> PatchAsync(
         Guid documentId,
         [FromBody] PatchDocumentRequest request,

@@ -49,7 +49,7 @@ public class UploadAttemptTests
         var result = attempt.Complete(42);
 
         result.IsFailure.ShouldBeTrue();
-        result.Failure.Code.ShouldBe("409-upload-attempt-not-active");
+        result.Failure.Code.ShouldBe("400-upload-attempt-not-active");
     }
 
     [Fact]

@@ -84,7 +84,7 @@ public sealed class DocumentBuilder
 
     /// <summary>Validates the collected state and builds the document.</summary>
     /// <param name="now">Current instant, used as creation and update time.</param>
-    /// <returns>The document, or a <c>422</c> failure describing the violated rules.</returns>
+    /// <returns>The document, or a <c>400</c> failure describing the violated rules.</returns>
     public Result<Document> Build(DateTimeOffset now)
     {
         if (_publicId == Guid.Empty)
@@ -96,6 +96,6 @@ public sealed class DocumentBuilder
         var validation = new DocumentFieldsValidator().Validate(fields);
         return validation.IsValid
             ? Document.Create(_publicId, fields, now)
-            : ValidationFailures.From("422-document-invalid", validation);
+            : ValidationFailures.From("400-document-invalid", validation);
     }
 }

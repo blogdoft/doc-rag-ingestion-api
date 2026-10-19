@@ -120,17 +120,17 @@ public sealed class DocumentVersion
     /// <summary>Moves the version to <see cref="IngestionStatus.Uploading"/>.</summary>
     /// <param name="activeAttemptExists">Whether another attempt still holds a valid lease.</param>
     /// <param name="now">Current instant.</param>
-    /// <returns>Success, or a <c>409</c> failure when a file already exists or another upload is running.</returns>
+    /// <returns>Success, or a <c>400</c> failure when a file already exists or another upload is running.</returns>
     public Result StartUpload(bool activeAttemptExists, DateTimeOffset now)
     {
         if (Status == IngestionStatus.Uploaded)
         {
-            return new Failure("409-version-already-uploaded", "This version already has an original file; it cannot be replaced.");
+            return new Failure("400-version-already-uploaded", "This version already has an original file; it cannot be replaced.");
         }
 
         if (activeAttemptExists)
         {
-            return new Failure("409-upload-in-progress", "Another upload is already in progress for this version.");
+            return new Failure("400-upload-in-progress", "Another upload is already in progress for this version.");
         }
 
         Status = IngestionStatus.Uploading;
@@ -143,12 +143,12 @@ public sealed class DocumentVersion
     /// <param name="eventId">Identifier for the event.</param>
     /// <param name="correlationId">Request correlation identifier.</param>
     /// <param name="now">Current instant.</param>
-    /// <returns>Success, or a <c>409</c> failure when the version is not uploading.</returns>
+    /// <returns>Success, or a <c>400</c> failure when the version is not uploading.</returns>
     public Result MarkUploaded(DocumentFile file, Guid eventId, string? correlationId, DateTimeOffset now)
     {
         if (Status != IngestionStatus.Uploading)
         {
-            return new Failure("409-version-not-uploading", "The version is not receiving an upload.");
+            return new Failure("400-version-not-uploading", "The version is not receiving an upload.");
         }
 
         File = file;

@@ -75,7 +75,7 @@ public interface IDocumentVersionRepository
     /// <summary>Inserts a version.</summary>
     /// <param name="version">The version.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>Success, or a <c>409</c> failure when the label already exists for the document.</returns>
+    /// <returns>Success, or a <c>400</c> failure when the label already exists for the document.</returns>
     Task<Result> InsertAsync(DocumentVersion version, CancellationToken cancellationToken = default);
 
     /// <summary>Finds a version (with its file) of a document.</summary>
@@ -160,7 +160,7 @@ public interface IUploadAttemptRepository
     /// <summary>Inserts an attempt; fails when the version already has an active one.</summary>
     /// <param name="attempt">The attempt.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>Success, or a <c>409</c> failure on a concurrent active attempt.</returns>
+    /// <returns>Success, or a <c>400</c> failure on a concurrent active attempt.</returns>
     Task<Result> InsertAsync(UploadAttempt attempt, CancellationToken cancellationToken = default);
 
     /// <summary>Persists a finished attempt, only if it is still active in the database.</summary>

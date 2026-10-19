@@ -46,7 +46,7 @@ public sealed partial class DocumentFile
     public DateTimeOffset UploadedAt { get; private set; }
 
     /// <summary>Builds a file record after a successful upload.</summary>
-    /// <returns>The file, or a <c>422</c> failure when an invariant is violated.</returns>
+    /// <returns>The file, or a <c>400</c> failure when an invariant is violated.</returns>
     public static Result<DocumentFile> Create(
         Guid publicId,
         long documentVersionId,
@@ -60,18 +60,18 @@ public sealed partial class DocumentFile
     {
         if (sizeBytes <= 0)
         {
-            return new Failure("422-file-empty", "The uploaded file is empty.");
+            return new Failure("400-file-empty", "The uploaded file is empty.");
         }
 
         if (!Sha256Pattern().IsMatch(sha256))
         {
-            return new Failure("422-file-sha256-invalid", "The SHA-256 digest must be 64 lowercase hexadecimal characters.");
+            return new Failure("400-file-sha256-invalid", "The SHA-256 digest must be 64 lowercase hexadecimal characters.");
         }
 
         if (string.IsNullOrWhiteSpace(originalName) || string.IsNullOrWhiteSpace(contentType)
             || string.IsNullOrWhiteSpace(bucket) || string.IsNullOrWhiteSpace(objectKey))
         {
-            return new Failure("422-file-invalid", "File name, content type and storage location are required.");
+            return new Failure("400-file-invalid", "File name, content type and storage location are required.");
         }
 
         return new DocumentFile

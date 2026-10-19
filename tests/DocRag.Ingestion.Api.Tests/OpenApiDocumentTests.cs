@@ -62,8 +62,8 @@ public class OpenApiDocumentTests : IClassFixture<ApiFactory>
         headers.ShouldContain("Content-Disposition");
         headers.ShouldContain("Idempotency-Key");
         headers.ShouldContain("X-Content-SHA256");
-        post.GetProperty("responses").TryGetProperty("413", out _).ShouldBeTrue();
-        post.GetProperty("responses").TryGetProperty("415", out _).ShouldBeTrue();
+        post.GetProperty("responses").TryGetProperty("413", out _).ShouldBeFalse();
+        post.GetProperty("responses").TryGetProperty("415", out _).ShouldBeFalse();
     }
 
     [Fact]
@@ -76,8 +76,8 @@ public class OpenApiDocumentTests : IClassFixture<ApiFactory>
         patch.GetProperty("requestBody").GetProperty("content").TryGetProperty("application/merge-patch+json", out _).ShouldBeTrue();
         var ifMatch = patch.GetProperty("parameters").EnumerateArray().Single(p => p.GetProperty("name").GetString() == "If-Match");
         ifMatch.GetProperty("required").GetBoolean().ShouldBeTrue();
-        patch.GetProperty("responses").TryGetProperty("412", out _).ShouldBeTrue();
-        patch.GetProperty("responses").TryGetProperty("428", out _).ShouldBeTrue();
+        patch.GetProperty("responses").TryGetProperty("412", out _).ShouldBeFalse();
+        patch.GetProperty("responses").TryGetProperty("428", out _).ShouldBeFalse();
     }
 
     [Fact]
