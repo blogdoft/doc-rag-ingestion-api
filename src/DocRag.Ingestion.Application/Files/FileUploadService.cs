@@ -169,7 +169,7 @@ public sealed class FileUploadService(
             await attempts.LockAdmissionAsync(cancellationToken);
             if (await attempts.CountActiveAsync(cancellationToken) >= options.Value.MaxConcurrentUploads)
             {
-                return new Failure("429-too-many-uploads", "The service reached its limit of concurrent uploads.");
+                return new Failure("400-too-many-uploads", "The service reached its limit of concurrent uploads.");
             }
 
             var started = version.StartUpload(active, now);

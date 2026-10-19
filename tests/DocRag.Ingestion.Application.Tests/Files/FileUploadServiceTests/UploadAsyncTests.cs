@@ -179,13 +179,13 @@ public class UploadAsyncTests : BaseFileUploadServiceTests
     }
 
     [Fact]
-    public async Task Should_ReturnTooManyRequests_When_TheServiceReachedItsConcurrentLimit()
+    public async Task Should_ReturnBadRequest_When_TheServiceReachedItsConcurrentLimit()
     {
         Attempts.CountActiveAsync(Arg.Any<CancellationToken>()).Returns(Options.MaxConcurrentUploads);
 
         var result = await Service.UploadAsync(Command(), CancellationToken.None);
 
-        result.Failure.Code.ShouldBe("429-too-many-uploads");
+        result.Failure.Code.ShouldBe("400-too-many-uploads");
         await Storage.DidNotReceiveWithAnyArgs().PutAsync(default!, default!, default!, default);
     }
 

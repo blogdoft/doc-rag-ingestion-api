@@ -30,7 +30,7 @@ public sealed class FilesController(FileUploadService uploads) : ControllerBase
     ///
     /// <b>Concurrency.</b> Only one upload may be active per version (<c>400</c> otherwise) and a version with a
     /// completed file cannot be replaced (<c>400</c>). The service runs a limited number of uploads at once
-    /// (<c>429</c>).
+    /// (<c>400</c>).
     ///
     /// <b>Retries.</b> Use <c>Idempotency-Key</c>. Repeating a completed upload with the same bytes returns the original
     /// result and publishes no second event; different bytes return <c>400</c>. An interrupted upload restarts from
@@ -45,11 +45,10 @@ public sealed class FilesController(FileUploadService uploads) : ControllerBase
     /// <param name="checksumSha256">Optional expected SHA-256 in hexadecimal.</param>
     /// <param name="cancellationToken">Propagates request abort; a client disconnect cancels the transfer.</param>
     /// <response code="201">File stored and registered.</response>
-    /// <response code="400">Invalid headers, empty upload, SHA-256 mismatch, size limit exceeded, media type not allowed or not matching the content, version already has a file, another upload is active, or the idempotency key conflicts.</response>
+    /// <response code="400">Invalid headers, empty upload, SHA-256 mismatch, concurrent upload limit reached, size limit exceeded, media type not allowed or not matching the content, version already has a file, another upload is active, or the idempotency key conflicts.</response>
     /// <response code="401">Missing or invalid token. No body.</response>
     /// <response code="403">Token lacks the write scope. No body.</response>
     /// <response code="404">Document or version not found. No body.</response>
-    /// <response code="429">The service reached its concurrent upload limit.</response>
     /// <response code="503">Object storage unavailable. No body.</response>
     [HttpPost]
     [Authorize(AuthenticationExtensions.WritePolicy)]
@@ -59,7 +58,6 @@ public sealed class FilesController(FileUploadService uploads) : ControllerBase
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status429TooManyRequests, "application/problem+json")]
     [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
     public async Task<IActionResult> UploadAsync(
         Guid documentId,

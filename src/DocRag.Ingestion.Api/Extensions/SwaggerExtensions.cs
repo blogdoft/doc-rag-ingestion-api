@@ -37,7 +37,7 @@ public static class SwaggerExtensions
         **Formats:** JSON bodies use `application/json` (PATCH uses `application/merge-patch+json`) with
         camelCase properties; unknown properties are rejected. Uploads are raw binary bodies.
 
-        **Errors:** `400` and `429` are RFC 9457
+        **Errors:** `400` responses are RFC 9457
         `application/problem+json` with a `traceId`. `401`, `403`, `404` and `5xx` have no body.
         """;
 

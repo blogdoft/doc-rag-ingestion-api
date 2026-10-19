@@ -117,8 +117,6 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
-        '429':
-          $ref: '#/components/responses/TooManyRequests'
     get:
       tags:
       - Documents
@@ -424,8 +422,6 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
-        '429':
-          $ref: '#/components/responses/TooManyRequests'
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
 components:
@@ -544,12 +540,6 @@ components:
             $ref: '#/components/schemas/ProblemDetails'
     NotFound:
       description: Recurso não encontrado.
-      content:
-        application/problem+json:
-          schema:
-            $ref: '#/components/schemas/ProblemDetails'
-    TooManyRequests:
-      description: Limite de requisições ou uploads simultâneos excedido.
       content:
         application/problem+json:
           schema:

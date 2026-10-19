@@ -236,7 +236,7 @@ public class UploadLimitTests(InfrastructureFixture infrastructure) : E2ETestBas
     }
 
     [Fact]
-    public async Task Should_ReturnTooManyRequests_When_TheServiceExceedsItsConcurrentUploads()
+    public async Task Should_ReturnBadRequest_When_TheServiceExceedsItsConcurrentUploads()
     {
         var client = Client();
         var firstDocument = await CreateDocumentAsync(client, "A");
@@ -253,6 +253,6 @@ public class UploadLimitTests(InfrastructureFixture infrastructure) : E2ETestBas
         gate.SetResult();
         await running;
 
-        rejected.StatusCode.ShouldBe((HttpStatusCode)429);
+        rejected.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
     }
 }
