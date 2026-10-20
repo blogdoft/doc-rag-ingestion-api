@@ -3,6 +3,7 @@ using DocRag.Ingestion.Application.Common;
 using DocRag.Ingestion.Application.Documents;
 using DocRag.Ingestion.Application.Files;
 using DocRag.Ingestion.Application.Idempotency;
+using DocRag.Ingestion.Application.MasterData;
 using DocRag.Ingestion.Application.Options;
 using DocRag.Ingestion.Application.Outbox;
 using DocRag.Ingestion.Application.Versions;
@@ -25,6 +26,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IClock, SystemClock>();
         services.AddScoped<IdempotencyGate>();
         services.AddScoped<DocumentService>();
+        services.AddScoped<DocumentTypeService>();
+        services.AddScoped<DocumentLanguageService>();
         services.AddScoped<VersionService>();
         services.AddScoped<FileUploadService>();
         return services;

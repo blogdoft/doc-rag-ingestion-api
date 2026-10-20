@@ -1,4 +1,5 @@
 using DocRag.Ingestion.Application.Abstractions;
+using DocRag.Ingestion.Application.MasterData;
 using DocRag.Ingestion.Infrastructure.Postgres.Migrations;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -18,6 +19,10 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
     public const string Audience = "doc-rag-ingestion";
 
     public IDocumentRepository Documents { get; } = Substitute.For<IDocumentRepository>();
+
+    public IDocumentTypeRepository DocumentTypes { get; } = Substitute.For<IDocumentTypeRepository>();
+
+    public IDocumentLanguageRepository DocumentLanguages { get; } = Substitute.For<IDocumentLanguageRepository>();
 
     public IDocumentVersionRepository Versions { get; } = Substitute.For<IDocumentVersionRepository>();
 
@@ -53,6 +58,8 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
         {
             services.RemoveAll<DatabaseMigrator>();
             Replace(services, Documents);
+            Replace(services, DocumentTypes);
+            Replace(services, DocumentLanguages);
             Replace(services, Versions);
             Replace(services, Files);
             Replace(services, Attempts);

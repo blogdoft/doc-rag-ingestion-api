@@ -1,4 +1,5 @@
 using DocRag.Ingestion.Application.Abstractions;
+using DocRag.Ingestion.Application.MasterData;
 using DocRag.Ingestion.Infrastructure.Garage;
 using DocRag.Ingestion.Infrastructure.Kafka;
 using DocRag.Ingestion.Infrastructure.Postgres;
@@ -28,6 +29,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<DbSession>());
         services.AddScoped<IDocumentRepository, DocumentRepository>();
         services.AddScoped<IDocumentVersionRepository, DocumentVersionRepository>();
+        services.AddScoped<IDocumentTypeRepository, DocumentTypeRepository>();
+        services.AddScoped<IDocumentLanguageRepository, DocumentLanguageRepository>();
         services.AddScoped<IFileRepository, FileRepository>();
         services.AddScoped<IUploadAttemptRepository, UploadAttemptRepository>();
         services.AddScoped<IOutboxRepository, OutboxRepository>();
