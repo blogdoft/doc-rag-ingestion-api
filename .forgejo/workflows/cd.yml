@@ -1,66 +1,64 @@
+# Continuous delivery, triggered by every push to main: runs ci.yml as a gate, releases the commit
+# (next vX.Y.Z tag + release notes), then builds and publishes
+# the api and worker images to this repo's Forgejo Container Registry and deploys them by stamping
+# the version onto .eng/k8s/ and pushing the result into the argo-local-apps GitOps repo
+# (manifests/code-brain/doc-rag-ingestion-api/) - ArgoCD takes it from there.
+# Every push to main that passes ci.yml is released: .forgejo/scripts/release.sh picks the bump from
+# the conventional commits since the last tag (`type!:` or a BREAKING CHANGE footer = major,
+# `feat` = minor, anything else = patch) and creates the vX.Y.Z tag and its release notes through
+# the Forgejo API. The image built from that commit carries the version.
+# Nothing that only validates the code belongs here: put it in ci.yml. To add a release or
+# deploy step, add it to `publish` or `deploy` (or a new job in the chain).
+#
 # Assumes a self-hosted act_runner labeled "self-hosted" with access to a Docker daemon.
 # Registry settings: REGISTRY, REGISTRY_IMAGE and REGISTRY_USERNAME are repo/org variables
 # (the worker image is published as "${REGISTRY_IMAGE}-worker"); REGISTRY_PASSWORD and
-# ARGO_DEPLOY_SSH_KEY are repo secrets. Mirrors sauron/code-ciir-indexer's workflow.
-name: Test, publish Docker images and deploy
+# ARGO_DEPLOY_SSH_KEY are repo secrets; RELEASE_TOKEN (a Forgejo token that can write this repo's
+# releases) is optional - the release job falls back to the workflow's own token when unset.
+
+name: CD
 
 on:
   push:
-    tags: ["v*.*.*"]
+    branches: [main]
 
-# Runs are queued (not cancelled) since each tag produces a distinct, meaningful image version.
+# Runs are queued (not cancelled): each one computes the next version from the tags left by the
+# previous one, so they must not overlap.
 concurrency:
   group: ${{ github.workflow }}
   cancel-in-progress: false
 
 jobs:
-  test:
-    runs-on: self-hosted
-    container:
-      image: mcr.microsoft.com/dotnet/sdk:10.0
-    outputs:
-      semver: ${{ steps.gitversion.outputs.semver }}
-    steps:
-      # actions/checkout is a Node action; the dotnet SDK image doesn't ship Node.
-      - name: Install Node.js
-        run: apt-get update && apt-get install -y --no-install-recommends nodejs
+  ci:
+    uses: ./.forgejo/workflows/ci.yml
+    secrets: inherit
 
-      - name: Checkout
-        uses: actions/checkout@v4
+  release:
+    needs: ci
+    runs-on: self-hosted
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
+      version: ${{ steps.release.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
         with:
-          # GitVersion needs the full commit history and tags to compute a SemVer.
+          # The next version is derived from the commits since the last tag.
           fetch-depth: 0
 
-      - name: Compute version (GitVersion)
-        id: gitversion
-        run: |
-          dotnet tool restore
-          dotnet tool run dotnet-gitversion /showvariable SemVer | tee /tmp/semver.txt
-          echo "semver=$(cat /tmp/semver.txt)" >> "$GITHUB_OUTPUT"
+      - name: Install jq and curl
+        run: apk add --no-cache jq curl
 
-      - name: Restore
-        run: dotnet restore DocRag.Ingestion.slnx
-
-      - name: Build
-        run: dotnet build DocRag.Ingestion.slnx --no-restore --configuration Release -p:TreatWarningsAsErrors=true
-
-      # -m:1 runs test projects one at a time: the Infrastructure tests start PostgreSQL, Garage
-      # and Kafka through Testcontainers, which overloads a shared Docker daemon in parallel.
-      # The retry only absorbs transient Testcontainers/Docker contention; a real failure fails
-      # both attempts.
-      - name: Test
-        run: |
-          for attempt in 1 2; do
-            dotnet test DocRag.Ingestion.slnx --no-build --configuration Release -m:1 && exit 0
-            echo "::warning::dotnet test failed (attempt $attempt/2) - retrying in case this is Testcontainers/Docker-daemon contention"
-          done
-          exit 1
+      - name: Create tag and release notes (conventional commits)
+        id: release
+        env:
+          RELEASE_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
+        run: bash .forgejo/scripts/release.sh
 
   publish:
-    needs: test
+    needs: release
     runs-on: self-hosted
     env:
-      VERSION: ${{ needs.test.outputs.semver }}
+      VERSION: ${{ needs.release.outputs.version }}
     outputs:
       deploy_tag: ${{ steps.tag.outputs.deploy_tag }}
     steps:
@@ -84,13 +82,15 @@ jobs:
             docker push "${image}:latest"
           done
 
-  update-gitops:
+  deploy:
     needs: publish
     runs-on: self-hosted
     steps:
       - uses: actions/checkout@v4
 
       - name: Install kustomize
+        # Forgejo injects its own GITHUB_TOKEN into every job; github.com rejects it when the
+        # install script uses it, so clear it for this step only.
         env:
           GITHUB_TOKEN: ""
         run: |
@@ -112,7 +112,7 @@ jobs:
 
       # ARGO_DEPLOY_SSH_KEY: private half of a dedicated deploy key with write access to
       # sauron/argo-local-apps (Settings > Deploy keys, "Read and Write" enabled).
-      # ARGO_SSH_KNOWN_HOSTS (org/repo variable) pins the host key of forgejo.home.arpa:2222; it is checked strictly.
+      # ARGO_SSH_KNOWN_HOSTS (org/repo variable) pins the host key of forgejo.home.arpa:2222.
       - name: Configure SSH
         run: |
           echo "${{ secrets.ARGO_DEPLOY_SSH_KEY }}" > "${{ github.workspace }}/.ssh-key"
@@ -146,3 +146,20 @@ jobs:
       - name: Clean up SSH key
         if: always()
         run: rm -f "${{ github.workspace }}/.ssh-key" "${{ github.workspace }}/.ssh-known-hosts"
+
+  # Housekeeping: keeps the 10 most recent version tags (releases and their notes are left
+  # untouched). Runs last and only after a successful deploy, so a failure here never blocks or
+  # hides a delivery.
+  prune-tags:
+    needs: deploy
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Delete all but the 10 most recent tags
+        env:
+          RELEASE_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
+          KEEP: "10"
+        run: bash .forgejo/scripts/prune-tags.sh

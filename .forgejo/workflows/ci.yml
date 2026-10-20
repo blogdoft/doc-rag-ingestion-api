@@ -1,9 +1,13 @@
-name: ci
+# Continuous integration: everything that validates the code and publishes nothing. Runs on
+# PRs and is called by cd.yml on every push to main, so the release is gated by the exact same
+# checks. To add a check, add a step to `build-test` or a new job here -
+# cd.yml needs no change, it waits for every job of this workflow.
+
+name: CI
 
 on:
-  push:
-    branches: [main]
   pull_request:
+  workflow_call:
 
 jobs:
   build-test:
