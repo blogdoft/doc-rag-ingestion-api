@@ -59,6 +59,7 @@ public static class SwaggerExtensions
                 Type = JsonSchemaType.Array | JsonSchemaType.Null,
                 Items = new OpenApiSchema { Type = JsonSchemaType.String },
             });
+            options.MapType<PatchField<Guid?>>(() => new OpenApiSchema { Type = JsonSchemaType.String | JsonSchemaType.Null, Format = "uuid" });
             options.MapType<PatchField<JsonElement?>>(() => new OpenApiSchema { Type = JsonSchemaType.Object | JsonSchemaType.Null });
             options.MapType<JsonElement>(() => new OpenApiSchema { Type = JsonSchemaType.Object });
 

@@ -21,8 +21,8 @@ internal sealed class ExamplesSchemaFilter : ISchemaFilter
             {
                 ["title"] = "Manual de Orientações do Contribuinte - CT-e",
                 ["description"] = "Manual técnico de orientação do CT-e",
-                ["type"] = "fiscal-manual",
-                ["language"] = "pt-BR",
+                ["typeId"] = "0199a8bb-7bc4-7000-8000-4d981eb52c93",
+                ["languageId"] = "0199a8bb-7bc4-7000-8000-4d981eb52c94",
                 ["tags"] = new JsonArray("cte", "sefaz", "documento-fiscal"),
                 ["metadata"] = new JsonObject { ["publisher"] = "ENCAT", ["jurisdiction"] = "BR", ["documentModel"] = "57" },
             };

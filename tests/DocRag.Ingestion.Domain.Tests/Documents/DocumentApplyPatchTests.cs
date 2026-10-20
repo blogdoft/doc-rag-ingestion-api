@@ -89,4 +89,35 @@ public class DocumentApplyPatchTests
         result.IsSuccess.ShouldBeTrue();
         document.Metadata.EnumerateObject().ShouldBeEmpty();
     }
+
+    [Fact]
+    public void Should_ReplaceTypeAndLanguage_When_TheyArePatched()
+    {
+        var document = DocumentTestData.ValidDocument();
+        var type = DocumentTestData.Type("legal-opinion");
+        var language = DocumentTestData.Language("en-US");
+        var patch = new DocumentPatch { Type = Optional<DocRag.Ingestion.Domain.MasterData.DocumentType?>.Of(type), Language = Optional<DocRag.Ingestion.Domain.MasterData.DocumentLanguage?>.Of(language) };
+
+        var result = document.ApplyPatch(patch, Later);
+
+        result.IsSuccess.ShouldBeTrue();
+        document.Type.ShouldBe(type);
+        document.Language.ShouldBe(language);
+        document.Revision.ShouldBe(2);
+    }
+
+    [Fact]
+    public void Should_RejectNullType_When_TypeIsPatchedToNull()
+    {
+        var document = DocumentTestData.ValidDocument();
+        var originalType = document.Type;
+        var patch = new DocumentPatch { Type = Optional<DocRag.Ingestion.Domain.MasterData.DocumentType?>.Of(null) };
+
+        var result = document.ApplyPatch(patch, Later);
+
+        result.IsFailure.ShouldBeTrue();
+        result.Failure.Message.ShouldContain("type is required");
+        document.Type.ShouldBe(originalType);
+        document.Revision.ShouldBe(1);
+    }
 }

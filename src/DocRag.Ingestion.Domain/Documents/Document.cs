@@ -1,6 +1,7 @@
 using System.Text.Json;
 using BlogDoFT.Libs.ResultPattern;
 using DocRag.Ingestion.Domain.Common;
+using DocRag.Ingestion.Domain.MasterData;
 
 namespace DocRag.Ingestion.Domain.Documents;
 
@@ -10,8 +11,8 @@ public sealed class Document
     private Document()
     {
         Title = string.Empty;
-        Type = string.Empty;
-        Language = string.Empty;
+        Type = null!;
+        Language = null!;
         Tags = [];
     }
 
@@ -27,11 +28,11 @@ public sealed class Document
     /// <summary>Gets the optional description.</summary>
     public string? Description { get; private set; }
 
-    /// <summary>Gets the category.</summary>
-    public string Type { get; private set; }
+    /// <summary>Gets the category, a master data record.</summary>
+    public DocumentType Type { get; private set; }
 
-    /// <summary>Gets the BCP 47 language tag.</summary>
-    public string Language { get; private set; }
+    /// <summary>Gets the language, a master data record.</summary>
+    public DocumentLanguage Language { get; private set; }
 
     /// <summary>Gets the tags.</summary>
     public IReadOnlyList<string> Tags { get; private set; }
@@ -67,8 +68,8 @@ public sealed class Document
         Guid publicId,
         string title,
         string? description,
-        string type,
-        string language,
+        DocumentType type,
+        DocumentLanguage language,
         IReadOnlyList<string> tags,
         JsonElement metadata,
         long revision,

@@ -56,19 +56,35 @@ public class DocumentBuilderTests
         result.Failure.Message.ShouldContain("at most 300");
     }
 
-    [Theory]
-    [InlineData("pt_BR")]
-    [InlineData("PT-br")]
-    [InlineData("x")]
-    [InlineData("portuguese!")]
-    public void Should_ReturnFailure_When_LanguageIsNotBcp47(string language)
+    [Fact]
+    public void Should_KeepTheMasterDataRecords_When_AllFieldsAreValid()
     {
-        var builder = DocumentTestData.ValidBuilder().InLanguage(language);
+        var type = DocumentTestData.Type("legal-opinion");
+        var language = DocumentTestData.Language("en-US");
 
-        var result = builder.Build(DocumentTestData.Now);
+        var result = DocumentTestData.ValidBuilder().OfType(type).InLanguage(language).Build(DocumentTestData.Now);
+
+        result.Value.Type.ShouldBe(type);
+        result.Value.Language.ShouldBe(language);
+    }
+
+    [Fact]
+    public void Should_ReturnFailure_When_TypeIsMissing()
+    {
+        var result = DocumentTestData.ValidBuilder().OfType(null).Build(DocumentTestData.Now);
 
         result.IsFailure.ShouldBeTrue();
-        result.Failure.Message.ShouldContain("BCP 47");
+        result.Failure.Code.ShouldBe("400-document-invalid");
+        result.Failure.Message.ShouldContain("type is required");
+    }
+
+    [Fact]
+    public void Should_ReturnFailure_When_LanguageIsMissing()
+    {
+        var result = DocumentTestData.ValidBuilder().InLanguage(null).Build(DocumentTestData.Now);
+
+        result.IsFailure.ShouldBeTrue();
+        result.Failure.Message.ShouldContain("language is required");
     }
 
     [Fact]

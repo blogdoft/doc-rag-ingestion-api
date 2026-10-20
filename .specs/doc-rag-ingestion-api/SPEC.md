@@ -30,13 +30,19 @@ Implementar uma API HTTP para (a) cadastrar a identidade lógica de documentos, 
 | Método | Caminho | Resultado |
 |---|---|---|
 | POST | `/api/v1/documents` | `201` documento |
-| GET | `/api/v1/documents` | `200` página de documentos (filtros opcionais `type`, `language`, `tag`, `title` com wildcard `*`; `pageSize`, `cursor`) |
+| GET | `/api/v1/documents` | `200` página de documentos (filtros opcionais `typeId`, `languageId`, `tag`, `title` com wildcard `*`; `pageSize`, `cursor`) |
 | GET | `/api/v1/documents/{documentId}` | `200` documento |
 | PATCH | `/api/v1/documents/{documentId}` | `200` documento atualizado |
 | POST | `/api/v1/documents/{documentId}/versions` | `201` versão |
 | GET | `/api/v1/documents/{documentId}/versions` | `200` página |
 | GET | `/api/v1/documents/{documentId}/versions/{versionId}` | `200` versão |
 | POST | `/api/v1/documents/{documentId}/versions/{versionId}/files` | `201` arquivo recebido |
+| POST / GET | `/api/v1/document-types` | `201` tipo de documento / `200` página (`pageSize`, `cursor`) |
+| GET / PUT / DELETE | `/api/v1/document-types/{documentTypeId}` | `200` tipo / `200` tipo atualizado / `204` |
+| POST / GET | `/api/v1/document-languages` | `201` idioma / `200` página (`pageSize`, `cursor`) |
+| GET / PUT / DELETE | `/api/v1/document-languages/{documentLanguageId}` | `200` idioma / `200` idioma atualizado / `204` |
+
+**Masterdata:** `document-types` (campo `name`, até 100 caracteres) e `document-languages` (campo `code`, tag BCP 47 de até 35 caracteres) são cadastros de apoio aos documentos. Todo masterdata tem chave numérica auto-incremental interna (`id`), identificador público UUID v7 (`id` na API) e seus campos descritivos; o valor descritivo é único ignorando maiúsculas/minúsculas (`400` quando repetido). Leitura exige o escopo de leitura e escrita o de escrita. O documento referencia um tipo e um idioma por chave estrangeira (`document_type_id`, `document_language_id`); a API recebe `typeId` e `languageId` (UUID públicos) e devolve, além deles, `type` (nome) e `language` (código). Um `typeId`/`languageId` inexistente responde `400`.
 
 **Prefixo de publicação:** atrás de um proxy que remove um prefixo de roteamento (ex.: `/code-brain/api/doc-rag` no ingress do cluster), a URL pública é informada em `PublicBaseUrl`. Ela passa a ser o único `servers` do documento OpenAPI e o `PathBase` das requisições, de modo que o "Try it out" do Swagger UI, os redirecionamentos do `/swagger` e o header `Location` das respostas `201` incluam o prefixo (`{PathBase}/api/v1/...`). Sem `PublicBaseUrl` nada muda: o `Location` é relativo à raiz e o Swagger UI usa o esquema/host da própria requisição.
 
@@ -48,7 +54,7 @@ Implementar uma API HTTP para (a) cadastrar a identidade lógica de documentos, 
 curl -X POST https://ingestion.example.com/api/v1/documents \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   -H 'Idempotency-Key: create-moc-cte' \
-  -d '{"title":"Manual CT-e","type":"fiscal-manual","language":"pt-BR","tags":["cte"],"metadata":{"publisher":"ENCAT"}}'
+  -d '{"title":"Manual CT-e","typeId":"<id de /document-types>","languageId":"<id de /document-languages>","tags":["cte"],"metadata":{"publisher":"ENCAT"}}'
 
 curl -X POST "https://ingestion.example.com/api/v1/documents/$DOCUMENT_ID/versions" \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
@@ -72,7 +78,7 @@ Separar Domain, Application, Infrastructure e API (Clean/Hexagonal sem abstraç�
 
 ## 5. Modelo relacional PostgreSQL
 
-**`documents`**: `id uuid PK`, `title varchar(300)`, `description text NULL`, `type varchar(100)`, `language varchar(35)`, `tags jsonb`, `metadata jsonb`, `revision bigint NOT NULL DEFAULT 1`, `created_at timestamptz`, `updated_at timestamptz`. Índice único por identificador público.
+**`documents`**: `id uuid PK`, `title varchar(300)`, `description text NULL`, `document_type_id bigint FK`, `document_language_id bigint FK`, `tags jsonb`, `metadata jsonb`, `revision bigint NOT NULL DEFAULT 1`, `created_at timestamptz`, `updated_at timestamptz`. Índice único por identificador público.
 
 **`document_versions`**: `id uuid PK`, `document_id uuid FK`, `label varchar(100)`, `published_at timestamptz NULL`, `effective_from timestamptz NULL`, `effective_to timestamptz NULL`, `ingestion_status varchar(30)`, `created_at timestamptz`, `updated_at timestamptz`; índice único `(document_id,label)` e FK para o documento. `effective_to >= effective_from` quando ambas presentes.
 

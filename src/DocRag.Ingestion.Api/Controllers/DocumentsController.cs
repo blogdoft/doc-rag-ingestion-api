@@ -30,7 +30,7 @@ public sealed class DocumentsController(DocumentService documents) : ControllerB
     /// <param name="idempotencyKey">Optional safe-retry key.</param>
     /// <param name="cancellationToken">Propagates request abort.</param>
     /// <response code="201">Document registered; <c>Location</c> points to it and <c>ETag</c> carries its revision.</response>
-    /// <response code="400">Malformed JSON, invalid field or violated business rule (e.g. metadata too large), or an idempotency key reused with different content or still being processed; see <c>errors</c>.</response>
+    /// <response code="400">Malformed JSON, invalid field, an unknown <c>typeId</c> or <c>languageId</c>, violated business rule (e.g. metadata too large), or an idempotency key reused with different content or still being processed; see <c>errors</c>.</response>
     /// <response code="401">Missing or invalid token. No body.</response>
     /// <response code="403">Token lacks the write scope. No body.</response>
     [HttpPost]
@@ -51,8 +51,8 @@ public sealed class DocumentsController(DocumentService documents) : ControllerB
                 idempotencyKey,
                 request.Title,
                 request.Description,
-                request.Type,
-                request.Language,
+                request.TypeId,
+                request.LanguageId,
                 request.Tags,
                 request.Metadata),
             cancellationToken);
@@ -69,11 +69,11 @@ public sealed class DocumentsController(DocumentService documents) : ControllerB
     /// <summary>List documents</summary>
     /// <remarks>
     /// Documents, newest first, with opaque cursor pagination: pass the returned
-    /// <c>nextCursor</c> as <c>cursor</c> to get the next page. <c>type</c>, <c>language</c> and
+    /// <c>nextCursor</c> as <c>cursor</c> to get the next page. <c>typeId</c>, <c>languageId</c> and
     /// <c>tag</c> are optional exact-match filters and <c>title</c> is a wildcard search; all combine with AND. Versions and files are not included.
     /// </remarks>
-    /// <param name="type">Only documents of this category, e.g. <c>fiscal-manual</c>.</param>
-    /// <param name="language">Only documents in this BCP 47 language, e.g. <c>pt-BR</c>.</param>
+    /// <param name="typeId">Only documents of this document type (identifier from <c>/api/v1/document-types</c>).</param>
+    /// <param name="languageId">Only documents in this document language (identifier from <c>/api/v1/document-languages</c>).</param>
     /// <param name="tag">Only documents carrying this tag.</param>
     /// <param name="title">
     /// Case-insensitive title search, up to 300 characters. <c>*</c> matches any run of characters
@@ -94,8 +94,8 @@ public sealed class DocumentsController(DocumentService documents) : ControllerB
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> ListAsync(
-        [FromQuery] string? type = null,
-        [FromQuery] string? language = null,
+        [FromQuery] Guid? typeId = null,
+        [FromQuery] Guid? languageId = null,
         [FromQuery] string? tag = null,
         [FromQuery] string? title = null,
         [FromQuery] int pageSize = Pagination.DefaultPageSize,
@@ -103,7 +103,7 @@ public sealed class DocumentsController(DocumentService documents) : ControllerB
         CancellationToken cancellationToken = default)
     {
         var result = await documents.ListAsync(
-            new DocumentFilter(type, language, tag, title), pageSize, cursor, cancellationToken);
+            new DocumentFilter(typeId, languageId, tag, title), pageSize, cursor, cancellationToken);
         return result.IsFailure ? result.Failure.ToActionResult(HttpContext) : Ok(DocumentPageResponse.From(result.Value));
     }
 
@@ -147,7 +147,7 @@ public sealed class DocumentsController(DocumentService documents) : ControllerB
     /// <param name="ifMatch">ETag from a previous GET, e.g. <c>"3"</c>. Required.</param>
     /// <param name="cancellationToken">Propagates request abort.</param>
     /// <response code="200">Updated document with its new <c>ETag</c>.</response>
-    /// <response code="400">Malformed JSON, invalid field or a patched state that violates a business rule, a missing <c>If-Match</c> header or a stale ETag; see <c>errors</c>.</response>
+    /// <response code="400">Malformed JSON, invalid field, an unknown <c>typeId</c> or <c>languageId</c>, a patched state that violates a business rule, a missing <c>If-Match</c> header or a stale ETag; see <c>errors</c>.</response>
     /// <response code="401">Missing or invalid token. No body.</response>
     /// <response code="403">Token lacks the write scope. No body.</response>
     /// <response code="404">Not found. No body.</response>
@@ -167,7 +167,7 @@ public sealed class DocumentsController(DocumentService documents) : ControllerB
         CancellationToken cancellationToken)
     {
         var result = await documents.PatchAsync(
-            documentId, ParseRevision(ifMatch), request.ToPatch(), cancellationToken);
+            documentId, ParseRevision(ifMatch), request.ToCommand(), cancellationToken);
         if (result.IsFailure)
         {
             return result.Failure.ToActionResult(HttpContext);

@@ -1,5 +1,6 @@
 using System.Text.Json;
 using DocRag.Ingestion.Domain.Common;
+using DocRag.Ingestion.Domain.MasterData;
 
 namespace DocRag.Ingestion.Domain.Documents;
 
@@ -13,10 +14,10 @@ public sealed record DocumentPatch
     public Optional<string?> Description { get; init; }
 
     /// <summary>Gets the new type; <see langword="null"/> is rejected.</summary>
-    public Optional<string?> Type { get; init; }
+    public Optional<DocumentType?> Type { get; init; }
 
     /// <summary>Gets the new language; <see langword="null"/> is rejected.</summary>
-    public Optional<string?> Language { get; init; }
+    public Optional<DocumentLanguage?> Language { get; init; }
 
     /// <summary>Gets the replacement tags; <see langword="null"/> clears them.</summary>
     public Optional<IReadOnlyList<string>?> Tags { get; init; }

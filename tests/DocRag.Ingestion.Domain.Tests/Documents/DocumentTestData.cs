@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Bogus;
 using DocRag.Ingestion.Domain.Documents;
+using DocRag.Ingestion.Domain.MasterData;
 
 namespace DocRag.Ingestion.Domain.Tests.Documents;
 
@@ -14,10 +15,16 @@ internal static class DocumentTestData
         .WithPublicId(Guid.CreateVersion7(Now))
         .WithTitle(Faker.Lorem.Sentence(3))
         .WithDescription(Faker.Lorem.Sentence())
-        .OfType("fiscal-manual")
-        .InLanguage("pt-BR")
+        .OfType(Type())
+        .InLanguage(Language())
         .WithTags([Faker.Lorem.Word(), "cte"])
         .WithMetadata(Json("""{"publisher":"ENCAT","nested":{"a":1,"b":2}}"""));
+
+    public static DocumentType Type(string name = "fiscal-manual") =>
+        DocumentType.Builder().WithPublicId(Guid.CreateVersion7(Now)).Named(name).Build(Now).Value;
+
+    public static DocumentLanguage Language(string code = "pt-BR") =>
+        DocumentLanguage.Builder().WithPublicId(Guid.CreateVersion7(Now)).WithCode(code).Build(Now).Value;
 
     public static Document ValidDocument() => ValidBuilder().Build(Now).Value;
 

@@ -8,9 +8,12 @@ namespace DocRag.Ingestion.Infrastructure.Tests.E2E;
 [Collection(InfrastructureCollection.Name)]
 public class ListingTests(InfrastructureFixture infrastructure) : E2ETestBase(infrastructure)
 {
-    private static async Task<Guid> CreateAsync(HttpClient client, string title, string type, string language, params string[] tags)
+    private async Task<Guid> CreateAsync(HttpClient client, string title, string type, string language, params string[] tags)
     {
-        var response = await client.PostAsJsonAsync("/api/v1/documents", new { title, type, language, tags });
+        var typeId = await TypeIdAsync(client, type);
+        var languageId = await LanguageIdAsync(client, language);
+        var response = await client.PostAsJsonAsync("/api/v1/documents", new { title, typeId, languageId, tags });
+        response.EnsureSuccessStatusCode();
         return (await ReadAsync(response)).GetProperty("id").GetGuid();
     }
 
@@ -51,9 +54,13 @@ public class ListingTests(InfrastructureFixture infrastructure) : E2ETestBase(in
         await CreateAsync(client, "Other language", "fiscal-manual", "en", "cte");
         await CreateAsync(client, "Other tag", "fiscal-manual", "pt-BR", "nfe");
 
-        (await IdsAsync(client, "type=fiscal-manual&language=pt-BR&tag=cte")).ShouldBe([match]);
+        var typeId = await TypeIdAsync(client, "fiscal-manual");
+        var languageId = await LanguageIdAsync(client, "pt-BR");
+
+        (await IdsAsync(client, $"typeId={typeId}&languageId={languageId}&tag=cte")).ShouldBe([match]);
         (await IdsAsync(client, "tag=sefaz")).ShouldBe([match]);
-        (await IdsAsync(client, "type=fiscal-manual")).Count.ShouldBe(3);
+        (await IdsAsync(client, $"typeId={typeId}")).Count.ShouldBe(3);
+        (await IdsAsync(client, $"typeId={Guid.NewGuid()}")).ShouldBeEmpty();
     }
 
     [Fact]

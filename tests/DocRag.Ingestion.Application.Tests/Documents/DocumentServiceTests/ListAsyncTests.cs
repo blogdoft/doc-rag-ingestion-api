@@ -53,10 +53,24 @@ public class ListAsyncTests : BaseDocumentServiceTests
     {
         Documents.ListAsync(Arg.Any<DocumentFilter>(), 21, null, Arg.Any<CancellationToken>()).Returns(Rows(0));
 
-        await Service.ListAsync(new DocumentFilter(" ", "", "cte"), 20, null, CancellationToken.None);
+        await Service.ListAsync(new DocumentFilter(null, null, "cte", "  "), 20, null, CancellationToken.None);
 
         await Documents.Received(1).ListAsync(
-            Arg.Is<DocumentFilter>(f => f.Type == null && f.Language == null && f.Tag == "cte"),
+            Arg.Is<DocumentFilter>(f => f.TypeId == null && f.LanguageId == null && f.Tag == "cte" && f.Title == null),
+            21,
+            null,
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Should_ForwardTypeAndLanguageIds_When_TheyAreInTheFilter()
+    {
+        Documents.ListAsync(Arg.Any<DocumentFilter>(), 21, null, Arg.Any<CancellationToken>()).Returns(Rows(0));
+
+        await Service.ListAsync(new DocumentFilter(TestData.TypeId, TestData.LanguageId), 20, null, CancellationToken.None);
+
+        await Documents.Received(1).ListAsync(
+            Arg.Is<DocumentFilter>(f => f.TypeId == TestData.TypeId && f.LanguageId == TestData.LanguageId),
             21,
             null,
             Arg.Any<CancellationToken>());

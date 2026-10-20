@@ -6,6 +6,7 @@ using System.Text.Json;
 using DocRag.Ingestion.Api.Tests.Support;
 using DocRag.Ingestion.Application.Documents;
 using DocRag.Ingestion.Domain.Documents;
+using DocRag.Ingestion.Domain.MasterData;
 using NSubstitute;
 using Shouldly;
 
@@ -21,13 +22,20 @@ public class DocumentsEndpointTests : IClassFixture<ApiFactory>
         _factory = factory;
         _client = factory.CreateClient().WithToken(TestTokens.Create());
         _factory.Idempotency.ClearReceivedCalls();
+        _factory.DocumentTypes.GetAsync(TypeId, Arg.Any<CancellationToken>()).Returns(TypeRecord);
+        _factory.DocumentLanguages.GetAsync(LanguageId, Arg.Any<CancellationToken>()).Returns(LanguageRecord);
     }
+
+    private static readonly Guid TypeId = Guid.Parse("0199a8bb-7bc4-7000-8000-4d981eb52c93");
+    private static readonly Guid LanguageId = Guid.Parse("0199a8bb-7bc4-7000-8000-4d981eb52c94");
+    private static readonly DocumentType TypeRecord = DocumentType.Rehydrate(1, TypeId, "fiscal-manual", DateTimeOffset.UtcNow, DateTimeOffset.UtcNow);
+    private static readonly DocumentLanguage LanguageRecord = DocumentLanguage.Rehydrate(2, LanguageId, "pt-BR", DateTimeOffset.UtcNow, DateTimeOffset.UtcNow);
 
     private static readonly object ValidBody = new
     {
         title = "Manual CT-e",
-        type = "fiscal-manual",
-        language = "pt-BR",
+        typeId = TypeId,
+        languageId = LanguageId,
         tags = new[] { "cte" },
         metadata = new { publisher = "ENCAT" },
     };
@@ -37,8 +45,8 @@ public class DocumentsEndpointTests : IClassFixture<ApiFactory>
         var document = DocumentBuilder.New()
             .WithPublicId(Guid.CreateVersion7())
             .WithTitle("Manual")
-            .OfType("fiscal-manual")
-            .InLanguage("pt-BR")
+            .OfType(TypeRecord)
+            .InLanguage(LanguageRecord)
             .Build(DateTimeOffset.UtcNow).Value;
         document.AssignId(1);
         return document;
@@ -57,6 +65,10 @@ public class DocumentsEndpointTests : IClassFixture<ApiFactory>
         response.Headers.Contains("X-Correlation-Id").ShouldBeTrue();
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
         body.GetProperty("title").GetString().ShouldBe("Manual CT-e");
+        body.GetProperty("typeId").GetGuid().ShouldBe(TypeId);
+        body.GetProperty("type").GetString().ShouldBe("fiscal-manual");
+        body.GetProperty("languageId").GetGuid().ShouldBe(LanguageId);
+        body.GetProperty("language").GetString().ShouldBe("pt-BR");
         body.GetProperty("metadata").GetProperty("publisher").GetString().ShouldBe("ENCAT");
         await _factory.Documents.Received(1).InsertAsync(Arg.Any<Document>(), Arg.Any<CancellationToken>());
     }
@@ -67,14 +79,14 @@ public class DocumentsEndpointTests : IClassFixture<ApiFactory>
         var rows = new[] { ExistingDocument(), ExistingDocument(), ExistingDocument() };
         _factory.Documents.ListAsync(Arg.Any<DocumentFilter>(), 3, null, Arg.Any<CancellationToken>()).Returns(rows);
 
-        var response = await _client.GetAsync("/api/v1/documents?pageSize=2&type=fiscal-manual&language=pt-BR&tag=cte&title=manual*");
+        var response = await _client.GetAsync($"/api/v1/documents?pageSize=2&typeId={TypeId}&languageId={LanguageId}&tag=cte&title=manual*");
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
         body.GetProperty("data").GetArrayLength().ShouldBe(2);
         body.GetProperty("nextCursor").GetString().ShouldNotBeNullOrEmpty();
         await _factory.Documents.Received(1).ListAsync(
-            Arg.Is<DocumentFilter>(f => f.Type == "fiscal-manual" && f.Language == "pt-BR" && f.Tag == "cte" && f.Title == "manual*"),
+            Arg.Is<DocumentFilter>(f => f.TypeId == TypeId && f.LanguageId == LanguageId && f.Tag == "cte" && f.Title == "manual*"),
             3,
             null,
             Arg.Any<CancellationToken>());
@@ -114,7 +126,7 @@ public class DocumentsEndpointTests : IClassFixture<ApiFactory>
     [Fact]
     public async Task Should_RejectAnUnknownProperty_When_TheBodyCarriesOne()
     {
-        var response = await _client.PostAsJsonAsync("/api/v1/documents", new { title = "t", type = "t", language = "pt-BR", unknown = "x" });
+        var response = await _client.PostAsJsonAsync("/api/v1/documents", new { title = "t", typeId = TypeId, languageId = LanguageId, unknown = "x" });
 
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
     }
@@ -122,7 +134,7 @@ public class DocumentsEndpointTests : IClassFixture<ApiFactory>
     [Fact]
     public async Task Should_ReturnProblemJsonWithTraceIdAndFieldErrors_When_RequiredFieldsAreInvalid()
     {
-        var response = await _client.PostAsJsonAsync("/api/v1/documents", new { title = "", type = "x", language = "zz!" });
+        var response = await _client.PostAsJsonAsync("/api/v1/documents", new { title = "" });
 
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
         response.Content.Headers.ContentType!.MediaType.ShouldBe("application/problem+json");
@@ -131,7 +143,21 @@ public class DocumentsEndpointTests : IClassFixture<ApiFactory>
         problem.GetProperty("traceId").GetString().ShouldNotBeNullOrEmpty();
         var errors = problem.GetProperty("errors");
         errors.TryGetProperty("title", out _).ShouldBeTrue();
-        errors.TryGetProperty("language", out _).ShouldBeTrue();
+        errors.TryGetProperty("typeId", out _).ShouldBeTrue();
+        errors.TryGetProperty("languageId", out _).ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task Should_ReturnBadRequestAndNotInsert_When_TypeIdReferencesNothing()
+    {
+        var unknown = Guid.NewGuid();
+        _factory.DocumentTypes.GetAsync(unknown, Arg.Any<CancellationToken>()).Returns((DocumentType?)null);
+
+        var response = await _client.PostAsJsonAsync("/api/v1/documents", new { title = "t", typeId = unknown, languageId = LanguageId });
+
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        response.Content.Headers.ContentType!.MediaType.ShouldBe("application/problem+json");
+        await _factory.Documents.DidNotReceiveWithAnyArgs().InsertAsync(default!, default);
     }
 
     [Fact]
@@ -230,9 +256,34 @@ public class DocumentsEndpointTests : IClassFixture<ApiFactory>
         body.GetProperty("title").GetString().ShouldBe("Manual");
     }
 
+    [Fact]
+    public async Task Should_ReplaceTheTypeAndReturnItsName_When_TypeIdIsPatched()
+    {
+        var document = ExistingDocument();
+        var otherId = Guid.CreateVersion7();
+        _factory.Documents.GetAsync(document.PublicId, Arg.Any<CancellationToken>()).Returns(document);
+        _factory.DocumentTypes.GetAsync(otherId, Arg.Any<CancellationToken>())
+            .Returns(DocumentType.Rehydrate(9, otherId, "legal-opinion", DateTimeOffset.UtcNow, DateTimeOffset.UtcNow));
+        _factory.Documents.UpdateAsync(document, 1, Arg.Any<CancellationToken>()).Returns(true);
+        var request = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/documents/{document.PublicId}")
+        {
+            Content = MergePatch($$"""{"typeId":"{{otherId}}"}"""),
+        };
+        request.Headers.TryAddWithoutValidation("If-Match", "\"1\"");
+
+        var response = await _client.SendAsync(request);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        body.GetProperty("typeId").GetGuid().ShouldBe(otherId);
+        body.GetProperty("type").GetString().ShouldBe("legal-opinion");
+    }
+
     [Theory]
     [InlineData("{}")]
     [InlineData("""{"title":null}""")]
+    [InlineData("""{"typeId":null}""")]
+    [InlineData("""{"languageId":null}""")]
     [InlineData("""{"metadata":[1]}""")]
     public async Task Should_ReturnBadRequest_When_PatchIsEmptyOrNullsAMandatoryField(string patch)
     {

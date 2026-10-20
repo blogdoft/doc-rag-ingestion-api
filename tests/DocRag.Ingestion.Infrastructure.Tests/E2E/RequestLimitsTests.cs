@@ -14,7 +14,7 @@ public class RequestLimitsTests(InfrastructureFixture infrastructure) : E2ETestB
     public async Task Should_ReturnBadRequest_When_AJsonBodyExceedsOneMiB()
     {
         var client = Client();
-        var json = $$"""{"title":"{{new string('a', 1_500_000)}}","type":"t","language":"en"}""";
+        var json = $$"""{"title":"{{new string('a', 1_500_000)}}","typeId":"{{Guid.NewGuid()}}","languageId":"{{Guid.NewGuid()}}"}""";
 
         var response = await client.PostAsync("/api/v1/documents", new StringContent(json, new MediaTypeHeaderValue("application/json")));
 

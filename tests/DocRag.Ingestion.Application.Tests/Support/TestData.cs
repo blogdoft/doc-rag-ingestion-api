@@ -3,6 +3,7 @@ using Bogus;
 using DocRag.Ingestion.Application.Documents;
 using DocRag.Ingestion.Domain.Documents;
 using DocRag.Ingestion.Domain.Files;
+using DocRag.Ingestion.Domain.MasterData;
 using DocRag.Ingestion.Domain.Versions;
 
 namespace DocRag.Ingestion.Application.Tests.Support;
@@ -11,6 +12,10 @@ public static class TestData
 {
     public static readonly DateTimeOffset Now = new(2026, 10, 15, 12, 0, 0, TimeSpan.Zero);
 
+    public static readonly Guid TypeId = Guid.Parse("0199a8bb-7bc4-7000-8000-4d981eb52c93");
+
+    public static readonly Guid LanguageId = Guid.Parse("0199a8bb-7bc4-7000-8000-4d981eb52c94");
+
     public static Faker<CreateDocumentCommand> CreateDocumentCommand(string? idempotencyKey = null) =>
         new Faker<CreateDocumentCommand>()
             .UseSeed(42)
@@ -18,18 +23,26 @@ public static class TestData
                 idempotencyKey,
                 f.Lorem.Sentence(3),
                 f.Lorem.Sentence(),
-                "fiscal-manual",
-                "pt-BR",
+                TypeId,
+                LanguageId,
                 [f.Lorem.Word(), f.Lorem.Word() + "-x"],
                 JsonSerializer.Deserialize<JsonElement>("""{"publisher":"ENCAT"}""")));
+
+    public static DocumentType DocumentType()
+    {
+        var type = Domain.MasterData.DocumentType.Rehydrate(1, TypeId, "fiscal-manual", Now, Now);
+        return type;
+    }
+
+    public static DocumentLanguage DocumentLanguage() => Domain.MasterData.DocumentLanguage.Rehydrate(2, LanguageId, "pt-BR", Now, Now);
 
     public static Document Document(long id = 10)
     {
         var document = DocumentBuilder.New()
             .WithPublicId(Guid.CreateVersion7(Now))
             .WithTitle("Manual")
-            .OfType("fiscal-manual")
-            .InLanguage("pt-BR")
+            .OfType(DocumentType())
+            .InLanguage(DocumentLanguage())
             .Build(Now).Value;
         document.AssignId(id);
         return document;

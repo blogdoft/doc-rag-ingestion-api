@@ -43,8 +43,8 @@ public class IngestionFlowTests(InfrastructureFixture infrastructure) : E2ETestB
         var response = await client.PostAsJsonAsync("/api/v1/documents", new
         {
             title = "T",
-            type = "t",
-            language = "en",
+            typeId = await TypeIdAsync(client, "t"),
+            languageId = await LanguageIdAsync(client, "en"),
             metadata = new { nested = new { list = new object[] { 1, "two", null! }, flag = true }, unicode = "ação" },
         });
         var id = (await ReadAsync(response)).GetProperty("id").GetGuid();
@@ -134,7 +134,7 @@ public class IngestionFlowTests(InfrastructureFixture infrastructure) : E2ETestB
         await CreateDocumentAsync(client, "Idem", "create-2");
         var request = new HttpRequestMessage(HttpMethod.Post, "/api/v1/documents")
         {
-            Content = JsonContent.Create(new { title = "Different", type = "t", language = "pt-BR" }),
+            Content = JsonContent.Create(new { title = "Different", typeId = await TypeIdAsync(client), languageId = await LanguageIdAsync(client) }),
         };
         request.Headers.Add("Idempotency-Key", "create-2");
 

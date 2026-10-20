@@ -27,7 +27,7 @@ public class CreateAsyncTests : BaseDocumentServiceTests
     [Fact]
     public async Task Should_ReturnBadRequestAndNotTouchTheDatabase_When_DomainRejectsTheRequest()
     {
-        var command = TestData.CreateDocumentCommand().Generate() with { Language = "not a tag" };
+        var command = TestData.CreateDocumentCommand().Generate() with { Title = string.Empty };
 
         var result = await Service.CreateAsync(command, CancellationToken.None);
 
@@ -35,6 +35,53 @@ public class CreateAsyncTests : BaseDocumentServiceTests
         result.Failure.Code.ShouldBe("400-document-invalid");
         await Documents.DidNotReceiveWithAnyArgs().InsertAsync(default!, default);
         await UnitOfWork.DidNotReceive().BeginAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Should_ReturnBadRequest_When_TypeIdIsMissing()
+    {
+        var command = TestData.CreateDocumentCommand().Generate() with { TypeId = null };
+
+        var result = await Service.CreateAsync(command, CancellationToken.None);
+
+        result.Failure.Code.ShouldBe("400-document-invalid");
+        result.Failure.Message.ShouldContain("type is required");
+    }
+
+    [Fact]
+    public async Task Should_ReturnBadRequestAndNotTouchTheDatabase_When_TypeIdReferencesNothing()
+    {
+        var command = TestData.CreateDocumentCommand().Generate() with { TypeId = Guid.NewGuid() };
+        DocumentTypes.GetAsync(command.TypeId!.Value, Arg.Any<CancellationToken>()).Returns((DocRag.Ingestion.Domain.MasterData.DocumentType?)null);
+
+        var result = await Service.CreateAsync(command, CancellationToken.None);
+
+        result.Failure.Code.ShouldBe("400-document-type-not-found");
+        await Documents.DidNotReceiveWithAnyArgs().InsertAsync(default!, default);
+        await UnitOfWork.DidNotReceive().BeginAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Should_ReturnBadRequestAndNotTouchTheDatabase_When_LanguageIdReferencesNothing()
+    {
+        var command = TestData.CreateDocumentCommand().Generate() with { LanguageId = Guid.NewGuid() };
+        DocumentLanguages.GetAsync(command.LanguageId!.Value, Arg.Any<CancellationToken>()).Returns((DocRag.Ingestion.Domain.MasterData.DocumentLanguage?)null);
+
+        var result = await Service.CreateAsync(command, CancellationToken.None);
+
+        result.Failure.Code.ShouldBe("400-document-language-not-found");
+        await Documents.DidNotReceiveWithAnyArgs().InsertAsync(default!, default);
+    }
+
+    [Fact]
+    public async Task Should_AttachTheResolvedMasterData_When_TheIdsExist()
+    {
+        var command = TestData.CreateDocumentCommand().Generate();
+
+        var result = await Service.CreateAsync(command, CancellationToken.None);
+
+        result.Value.Type.PublicId.ShouldBe(TestData.TypeId);
+        result.Value.Language.PublicId.ShouldBe(TestData.LanguageId);
     }
 
     [Fact]

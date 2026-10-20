@@ -89,7 +89,8 @@ public class OpenApiDocumentTests : IClassFixture<ApiFactory>
 
         var request = schemas.GetProperty("CreateDocumentRequest");
         request.GetProperty("properties").TryGetProperty("title", out _).ShouldBeTrue();
-        request.GetProperty("example").GetProperty("language").GetString().ShouldBe("pt-BR");
+        request.GetProperty("example").TryGetProperty("typeId", out _).ShouldBeTrue();
+        request.GetProperty("example").TryGetProperty("languageId", out _).ShouldBeTrue();
         schemas.GetProperty("VersionResponse").GetProperty("properties").TryGetProperty("documentId", out _).ShouldBeTrue();
         schemas.GetProperty("FileResponse").GetProperty("properties").EnumerateObject().Select(p => p.Name)
             .ShouldNotContain(name => name.Contains("bucket", StringComparison.OrdinalIgnoreCase) || name.Contains("objectKey", StringComparison.OrdinalIgnoreCase));

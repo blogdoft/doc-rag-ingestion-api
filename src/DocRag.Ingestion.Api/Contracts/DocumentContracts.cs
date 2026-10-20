@@ -19,17 +19,15 @@ public sealed class CreateDocumentRequest
     [StringLength(4000)]
     public string? Description { get; init; }
 
-    /// <summary>Category controlled by the consuming application.</summary>
-    /// <example>fiscal-manual</example>
+    /// <summary>Identifier of a registered document type (<c>/api/v1/document-types</c>).</summary>
+    /// <example>0199a8bb-7bc4-7000-8000-4d981eb52c93</example>
     [Required]
-    [StringLength(100, MinimumLength = 1)]
-    public string Type { get; init; } = string.Empty;
+    public Guid? TypeId { get; init; }
 
-    /// <summary>Language as a BCP 47 tag.</summary>
-    /// <example>pt-BR</example>
+    /// <summary>Identifier of a registered document language (<c>/api/v1/document-languages</c>).</summary>
+    /// <example>0199a8bb-7bc4-7000-8000-4d981eb52c94</example>
     [Required]
-    [RegularExpression("^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$", ErrorMessage = "language must be a BCP 47 tag, e.g. pt-BR.")]
-    public string Language { get; init; } = string.Empty;
+    public Guid? LanguageId { get; init; }
 
     /// <summary>Distinct labels (up to 50, each up to 80 characters).</summary>
     /// <example>["cte", "sefaz"]</example>
@@ -50,11 +48,11 @@ public sealed class PatchDocumentRequest : IValidatableObject
     /// <summary>New description; null removes it.</summary>
     public PatchField<string?> Description { get; init; }
 
-    /// <summary>New category. Cannot be null.</summary>
-    public PatchField<string?> Type { get; init; }
+    /// <summary>New document type identifier. Cannot be null.</summary>
+    public PatchField<Guid?> TypeId { get; init; }
 
-    /// <summary>New BCP 47 language tag. Cannot be null.</summary>
-    public PatchField<string?> Language { get; init; }
+    /// <summary>New document language identifier. Cannot be null.</summary>
+    public PatchField<Guid?> LanguageId { get; init; }
 
     /// <summary>Replacement tags; null clears them.</summary>
     public PatchField<List<string>?> Tags { get; init; }
@@ -62,14 +60,14 @@ public sealed class PatchDocumentRequest : IValidatableObject
     /// <summary>Metadata patch, merged recursively into the current metadata; null members remove keys.</summary>
     public PatchField<JsonElement?> Metadata { get; init; }
 
-    /// <summary>Maps to the domain patch.</summary>
-    /// <returns>The patch.</returns>
-    public DocumentPatch ToPatch() => new()
+    /// <summary>Maps to the application command.</summary>
+    /// <returns>The patch command.</returns>
+    public PatchDocumentCommand ToCommand() => new()
     {
         Title = Title.ToOptional(),
         Description = Description.ToOptional(),
-        Type = Type.ToOptional(),
-        Language = Language.ToOptional(),
+        TypeId = TypeId.ToOptional(),
+        LanguageId = LanguageId.ToOptional(),
         Tags = Tags.IsSet
             ? Domain.Common.Optional<IReadOnlyList<string>?>.Of(Tags.Value)
             : Domain.Common.Optional<IReadOnlyList<string>?>.Unset,
@@ -79,7 +77,7 @@ public sealed class PatchDocumentRequest : IValidatableObject
     /// <inheritdoc />
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {
-        if (!(Title.IsSet || Description.IsSet || Type.IsSet || Language.IsSet || Tags.IsSet || Metadata.IsSet))
+        if (!(Title.IsSet || Description.IsSet || TypeId.IsSet || LanguageId.IsSet || Tags.IsSet || Metadata.IsSet))
         {
             yield return new ValidationResult("The patch must change at least one property.");
         }
@@ -89,14 +87,14 @@ public sealed class PatchDocumentRequest : IValidatableObject
             yield return new ValidationResult("title cannot be null.", [nameof(Title)]);
         }
 
-        if (Type is { IsSet: true, Value: null })
+        if (TypeId is { IsSet: true, Value: null })
         {
-            yield return new ValidationResult("type cannot be null.", [nameof(Type)]);
+            yield return new ValidationResult("typeId cannot be null.", [nameof(TypeId)]);
         }
 
-        if (Language is { IsSet: true, Value: null })
+        if (LanguageId is { IsSet: true, Value: null })
         {
-            yield return new ValidationResult("language cannot be null.", [nameof(Language)]);
+            yield return new ValidationResult("languageId cannot be null.", [nameof(LanguageId)]);
         }
 
         if (Metadata.Value is { ValueKind: not (JsonValueKind.Object or JsonValueKind.Null) })
@@ -120,9 +118,17 @@ public sealed class DocumentResponse
     /// <summary>Description, when present.</summary>
     public string? Description { get; init; }
 
-    /// <summary>Category.</summary>
+    /// <summary>Identifier of the document type.</summary>
+    /// <example>0199a8bb-7bc4-7000-8000-4d981eb52c93</example>
+    public Guid TypeId { get; init; }
+
+    /// <summary>Name of the document type.</summary>
     /// <example>fiscal-manual</example>
     public string Type { get; init; } = string.Empty;
+
+    /// <summary>Identifier of the document language.</summary>
+    /// <example>0199a8bb-7bc4-7000-8000-4d981eb52c94</example>
+    public Guid LanguageId { get; init; }
 
     /// <summary>BCP 47 language tag.</summary>
     /// <example>pt-BR</example>
@@ -148,8 +154,10 @@ public sealed class DocumentResponse
         Id = document.PublicId,
         Title = document.Title,
         Description = document.Description,
-        Type = document.Type,
-        Language = document.Language,
+        TypeId = document.Type.PublicId,
+        Type = document.Type.Name,
+        LanguageId = document.Language.PublicId,
+        Language = document.Language.Code,
         Tags = document.Tags,
         Metadata = document.Metadata,
         CreatedAt = document.CreatedAt,

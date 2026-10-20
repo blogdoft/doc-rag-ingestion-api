@@ -1,6 +1,7 @@
 using System.Text.Json;
 using BlogDoFT.Libs.ResultPattern;
 using DocRag.Ingestion.Domain.Common;
+using DocRag.Ingestion.Domain.MasterData;
 
 namespace DocRag.Ingestion.Domain.Documents;
 
@@ -10,8 +11,8 @@ public sealed class DocumentBuilder
     private Guid _publicId;
     private string? _title;
     private string? _description;
-    private string? _type;
-    private string? _language;
+    private DocumentType? _type;
+    private DocumentLanguage? _language;
     private IReadOnlyList<string> _tags = [];
     private JsonElement _metadata = Document.EmptyObject();
 
@@ -47,18 +48,18 @@ public sealed class DocumentBuilder
     }
 
     /// <summary>Sets the category.</summary>
-    /// <param name="type">The category.</param>
+    /// <param name="type">The category master data record.</param>
     /// <returns>This builder.</returns>
-    public DocumentBuilder OfType(string? type)
+    public DocumentBuilder OfType(DocumentType? type)
     {
         _type = type;
         return this;
     }
 
     /// <summary>Sets the language.</summary>
-    /// <param name="language">A BCP 47 tag.</param>
+    /// <param name="language">The language master data record.</param>
     /// <returns>This builder.</returns>
-    public DocumentBuilder InLanguage(string? language)
+    public DocumentBuilder InLanguage(DocumentLanguage? language)
     {
         _language = language;
         return this;

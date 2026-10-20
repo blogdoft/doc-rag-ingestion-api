@@ -1,3 +1,4 @@
+using DocRag.Ingestion.Application.Documents;
 using DocRag.Ingestion.Application.Tests.Support;
 using DocRag.Ingestion.Domain.Common;
 using DocRag.Ingestion.Domain.Documents;
@@ -8,7 +9,7 @@ namespace DocRag.Ingestion.Application.Tests.Documents.DocumentServiceTests;
 
 public class PatchAsyncTests : BaseDocumentServiceTests
 {
-    private static DocumentPatch DescriptionPatch => new() { Description = Optional<string?>.Of("updated") };
+    private static PatchDocumentCommand DescriptionPatch => new() { Description = Optional<string?>.Of("updated") };
 
     [Fact]
     public async Task Should_ReturnBadRequest_When_IfMatchIsMissing()
@@ -74,9 +75,65 @@ public class PatchAsyncTests : BaseDocumentServiceTests
     {
         var document = TestData.Document();
         Documents.GetAsync(document.PublicId, Arg.Any<CancellationToken>()).Returns(document);
-        var patch = new DocumentPatch { Title = Optional<string?>.Of(string.Empty) };
+        var patch = new PatchDocumentCommand { Title = Optional<string?>.Of(string.Empty) };
 
         var result = await Service.PatchAsync(document.PublicId, 1, patch, CancellationToken.None);
+
+        result.Failure.Code.ShouldBe("400-document-invalid");
+        await Documents.DidNotReceiveWithAnyArgs().UpdateAsync(default!, default, default);
+    }
+
+    [Fact]
+    public async Task Should_ReplaceTheTypeWithTheResolvedRecord_When_TypeIdIsPatched()
+    {
+        var document = TestData.Document();
+        var otherId = Guid.CreateVersion7();
+        var other = DocRag.Ingestion.Domain.MasterData.DocumentType.Rehydrate(5, otherId, "legal-opinion", TestData.Now, TestData.Now);
+        Documents.GetAsync(document.PublicId, Arg.Any<CancellationToken>()).Returns(document);
+        DocumentTypes.GetAsync(otherId, Arg.Any<CancellationToken>()).Returns(other);
+        Documents.UpdateAsync(document, 1, Arg.Any<CancellationToken>()).Returns(true);
+
+        var result = await Service.PatchAsync(document.PublicId, 1, new PatchDocumentCommand { TypeId = Optional<Guid?>.Of(otherId) }, CancellationToken.None);
+
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.Type.ShouldBe(other);
+    }
+
+    [Fact]
+    public async Task Should_ReturnBadRequestWithoutPersisting_When_PatchedTypeIdReferencesNothing()
+    {
+        var document = TestData.Document();
+        var unknown = Guid.NewGuid();
+        Documents.GetAsync(document.PublicId, Arg.Any<CancellationToken>()).Returns(document);
+        DocumentTypes.GetAsync(unknown, Arg.Any<CancellationToken>()).Returns((DocRag.Ingestion.Domain.MasterData.DocumentType?)null);
+
+        var result = await Service.PatchAsync(document.PublicId, 1, new PatchDocumentCommand { TypeId = Optional<Guid?>.Of(unknown) }, CancellationToken.None);
+
+        result.Failure.Code.ShouldBe("400-document-type-not-found");
+        await Documents.DidNotReceiveWithAnyArgs().UpdateAsync(default!, default, default);
+    }
+
+    [Fact]
+    public async Task Should_ReturnBadRequestWithoutPersisting_When_PatchedLanguageIdReferencesNothing()
+    {
+        var document = TestData.Document();
+        var unknown = Guid.NewGuid();
+        Documents.GetAsync(document.PublicId, Arg.Any<CancellationToken>()).Returns(document);
+        DocumentLanguages.GetAsync(unknown, Arg.Any<CancellationToken>()).Returns((DocRag.Ingestion.Domain.MasterData.DocumentLanguage?)null);
+
+        var result = await Service.PatchAsync(document.PublicId, 1, new PatchDocumentCommand { LanguageId = Optional<Guid?>.Of(unknown) }, CancellationToken.None);
+
+        result.Failure.Code.ShouldBe("400-document-language-not-found");
+        await Documents.DidNotReceiveWithAnyArgs().UpdateAsync(default!, default, default);
+    }
+
+    [Fact]
+    public async Task Should_ReturnBadRequestWithoutPersisting_When_TypeIdIsPatchedToNull()
+    {
+        var document = TestData.Document();
+        Documents.GetAsync(document.PublicId, Arg.Any<CancellationToken>()).Returns(document);
+
+        var result = await Service.PatchAsync(document.PublicId, 1, new PatchDocumentCommand { TypeId = Optional<Guid?>.Of(null) }, CancellationToken.None);
 
         result.Failure.Code.ShouldBe("400-document-invalid");
         await Documents.DidNotReceiveWithAnyArgs().UpdateAsync(default!, default, default);

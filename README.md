@@ -44,9 +44,14 @@ ASPNETCORE_URLS=http://localhost:8081 dotnet run --project src/DocRag.Ingestion.
 TOKEN=$(scripts/dev-token.sh acme)        # HS256 token for local development only
 B=http://localhost:8080/api/v1
 
+TYPE_ID=$(curl -s -X POST $B/document-types -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' -d '{"name":"fiscal-manual"}' | jq -r .id)
+LANG_ID=$(curl -s -X POST $B/document-languages -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' -d '{"code":"pt-BR"}' | jq -r .id)
+
 DOC=$(curl -s -X POST $B/documents -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   -H 'Idempotency-Key: create-moc-cte' \
-  -d '{"title":"Manual CT-e","type":"fiscal-manual","language":"pt-BR","tags":["cte"],"metadata":{"publisher":"ENCAT"}}' | jq -r .id)
+  -d "{\"title\":\"Manual CT-e\",\"typeId\":\"$TYPE_ID\",\"languageId\":\"$LANG_ID\",\"tags\":[\"cte\"],\"metadata\":{\"publisher\":\"ENCAT\"}}" | jq -r .id)
 
 VER=$(curl -s -X POST $B/documents/$DOC/versions -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' -d '{"label":"4.00"}' | jq -r .id)
@@ -171,9 +176,16 @@ bucket and a private object key - no tokens or pre-signed URLs.
 ## Decisions that deviate from, or complete, the spec
 
 * **`GET /api/v1/documents` lists documents** (not in the original contract; registered in
-  `openapi.yaml`): newest first by UUID v7, opaque keyset cursor, optional exact-match `type`, `language` and `tag`
+  `openapi.yaml`): newest first by UUID v7, opaque keyset cursor, optional exact-match `typeId`, `languageId` and `tag`
   filters combined with AND, plus a case-insensitive `title` search where `*` is the wildcard (`manual*`, `*cte`, `*fiscal*`;
   no `*` means equality with the whole title; `%` and `_` are literal). No trigram index yet: add `pg_trgm` + GIN if titles grow large. Page size is 1-100 (default 20), shared with the version listing.
+* **Master data CRUD** (`/api/v1/document-types`, `/api/v1/document-languages`): lookup tables that will back the
+  `type` and `language` of documents. Each has a `bigint` identity key, a public UUID v7 and one descriptive field
+  (`name` / BCP 47 `code`) that is unique ignoring case. Documents reference them by foreign key
+  (`document_type_id`, `document_language_id`): requests carry `typeId`/`languageId`, responses return those ids plus the
+  `type` name and `language` code. Migrations `M202610190003`-`M202610190006` seed the master data from the old text
+  columns, add and backfill the keys (matching ignoring case and padding) and only then make them `NOT NULL` and drop `type`
+  and `language`; a document that cannot be matched aborts that last step with the data intact.
 * **Dapper, not EF Core** (project standard): explicit SQL, `*Table` row types with `ToDomain/FromDomain`.
 * **Numeric PK + public UUID v7**: tables use `bigint` identity keys; the API only ever exposes `public_id`
   (UUID v7).

@@ -21,6 +21,9 @@ public abstract class E2ETestBase(InfrastructureFixture infrastructure) : IAsync
 
     protected virtual IDictionary<string, string?>? ConfigurationOverrides => null;
 
+    private readonly Dictionary<string, Guid> _masterData = [];
+    private readonly SemaphoreSlim _masterDataLock = new(1, 1);
+
     public async Task InitializeAsync()
     {
         ConnectionString = await Infrastructure.NewDatabaseAsync();
@@ -40,11 +43,43 @@ public abstract class E2ETestBase(InfrastructureFixture infrastructure) : IAsync
     protected static async Task<JsonElement> ReadAsync(HttpResponseMessage response) =>
         await response.Content.ReadFromJsonAsync<JsonElement>();
 
+    protected Task<Guid> TypeIdAsync(HttpClient client, string name = "fiscal-manual") =>
+        MasterDataIdAsync(client, "document-types", "name", name);
+
+    protected Task<Guid> LanguageIdAsync(HttpClient client, string code = "pt-BR") =>
+        MasterDataIdAsync(client, "document-languages", "code", code);
+
+    /// <summary>Registers the master data record through the API the first time it is asked for, then reuses its identifier.</summary>
+    private async Task<Guid> MasterDataIdAsync(HttpClient client, string resource, string field, string value)
+    {
+        await _masterDataLock.WaitAsync();
+        try
+        {
+            var key = $"{resource}:{value}";
+            if (_masterData.TryGetValue(key, out var existing))
+            {
+                return existing;
+            }
+
+            var response = await client.PostAsJsonAsync($"/api/v1/{resource}", new Dictionary<string, string> { [field] = value });
+            response.EnsureSuccessStatusCode();
+            var id = (await ReadAsync(response)).GetProperty("id").GetGuid();
+            _masterData[key] = id;
+            return id;
+        }
+        finally
+        {
+            _masterDataLock.Release();
+        }
+    }
+
     protected async Task<Guid> CreateDocumentAsync(HttpClient client, string title = "Manual", string? idempotencyKey = null)
     {
+        var typeId = await TypeIdAsync(client);
+        var languageId = await LanguageIdAsync(client);
         var request = new HttpRequestMessage(HttpMethod.Post, "/api/v1/documents")
         {
-            Content = JsonContent.Create(new { title, type = "fiscal-manual", language = "pt-BR", tags = new[] { "cte" }, metadata = new { publisher = "ENCAT" } }),
+            Content = JsonContent.Create(new { title, typeId, languageId, tags = new[] { "cte" }, metadata = new { publisher = "ENCAT" } }),
         };
         if (idempotencyKey is not null)
         {

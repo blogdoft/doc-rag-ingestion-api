@@ -89,8 +89,8 @@ paths:
                 value:
                   title: Manual de Orientações do Contribuinte - CT-e
                   description: Manual técnico de orientação do CT-e
-                  type: fiscal-manual
-                  language: pt-BR
+                  typeId: 0199a8bb-7bc4-7000-8000-4d981eb52c93
+                  languageId: 0199a8bb-7bc4-7000-8000-4d981eb52c94
                   tags:
                   - cte
                   - sefaz
@@ -123,21 +123,23 @@ paths:
       operationId: listDocuments
       summary: Listar documentos
       description: 'Retorna os documentos ordenados por criação decrescente, com paginação
-        por cursor opaco. `type`, `language` e `tag` são filtros opcionais de igualdade e `title` é uma busca com wildcard `*`; todos combinam com AND.
+        por cursor opaco. `typeId`, `languageId` e `tag` são filtros opcionais de igualdade e `title` é uma busca com wildcard `*`; todos combinam com AND.
         Não inclui versões nem arquivos.
 
         '
       parameters:
-      - name: type
+      - name: typeId
         in: query
-        description: Somente documentos desta categoria.
+        description: Somente documentos deste tipo (identificador de `/api/v1/document-types`).
         schema:
           type: string
-      - name: language
+          format: uuid
+      - name: languageId
         in: query
-        description: Somente documentos neste idioma (BCP 47).
+        description: Somente documentos neste idioma (identificador de `/api/v1/document-languages`).
         schema:
           type: string
+          format: uuid
       - name: tag
         in: query
         description: Somente documentos que possuam esta tag.
@@ -556,8 +558,8 @@ components:
       additionalProperties: false
       required:
       - title
-      - type
-      - language
+      - typeId
+      - languageId
       properties:
         title: &id001
           type: string
@@ -571,17 +573,16 @@ components:
           - 'null'
           maxLength: 4000
           description: Resumo opcional do documento.
-        type: &id003
+        typeId: &id003
           type: string
-          minLength: 1
-          maxLength: 100
-          description: Categoria controlada pela aplicação.
-          example: fiscal-manual
-        language: &id004
+          format: uuid
+          description: Identificador de um tipo de documento cadastrado (`/api/v1/document-types`).
+          example: 0199a8bb-7bc4-7000-8000-4d981eb52c93
+        languageId: &id004
           type: string
-          pattern: ^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$
-          description: Idioma no formato BCP 47.
-          example: pt-BR
+          format: uuid
+          description: Identificador de um idioma cadastrado (`/api/v1/document-languages`).
+          example: 0199a8bb-7bc4-7000-8000-4d981eb52c94
         tags: &id005
           type: array
           uniqueItems: true
@@ -612,13 +613,12 @@ components:
           - string
           - 'null'
           maxLength: 4000
-        type:
+        typeId:
           type: string
-          minLength: 1
-          maxLength: 100
-        language:
+          format: uuid
+        languageId:
           type: string
-          pattern: ^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$
+          format: uuid
         tags:
           type: array
           uniqueItems: true
@@ -638,7 +638,9 @@ components:
       required:
       - id
       - title
+      - typeId
       - type
+      - languageId
       - language
       - tags
       - metadata
@@ -647,8 +649,16 @@ components:
       properties:
         title: *id001
         description: *id002
-        type: *id003
-        language: *id004
+        typeId: *id003
+        type:
+          type: string
+          description: Nome do tipo de documento.
+          example: fiscal-manual
+        languageId: *id004
+        language:
+          type: string
+          description: Idioma no formato BCP 47 (código do cadastro de idiomas).
+          example: pt-BR
         tags: *id005
         metadata: *id006
         id:

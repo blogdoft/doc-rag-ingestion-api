@@ -9,25 +9,37 @@ namespace DocRag.Ingestion.Infrastructure.Postgres.Repositories;
 internal sealed class DocumentRepository(DbSession session) : RepositoryBase(session), IDocumentRepository
 {
     private const string ResultSet = """
-        SELECT id AS Id
-             , public_id AS PublicId
-             , title AS Title
-             , description AS Description
-             , type AS Type
-             , language AS Language
-             , tags::text AS Tags
-             , metadata::text AS Metadata
-             , revision AS Revision
-             , created_at AS CreatedAt
-             , updated_at AS UpdatedAt
-        FROM documents
+        SELECT d.id AS Id
+             , d.public_id AS PublicId
+             , d.title AS Title
+             , d.description AS Description
+             , t.id AS DocumentTypeId
+             , t.public_id AS TypePublicId
+             , t.name AS TypeName
+             , t.created_at AS TypeCreatedAt
+             , t.updated_at AS TypeUpdatedAt
+             , l.id AS DocumentLanguageId
+             , l.public_id AS LanguagePublicId
+             , l.code AS LanguageCode
+             , l.created_at AS LanguageCreatedAt
+             , l.updated_at AS LanguageUpdatedAt
+             , d.tags::text AS Tags
+             , d.metadata::text AS Metadata
+             , d.revision AS Revision
+             , d.created_at AS CreatedAt
+             , d.updated_at AS UpdatedAt
+        FROM documents d
+        JOIN document_types t
+          ON t.id = d.document_type_id
+        JOIN document_languages l
+          ON l.id = d.document_language_id
         """;
 
     public async Task InsertAsync(Document document, CancellationToken cancellationToken = default)
     {
         const string sql = """
-            INSERT INTO documents (public_id, title, description, type, language, tags, metadata, revision, created_at, updated_at)
-            VALUES (@PublicId, @Title, @Description, @Type, @Language, @Tags::jsonb, @Metadata::jsonb, @Revision, @CreatedAt, @UpdatedAt)
+            INSERT INTO documents (public_id, title, description, document_type_id, document_language_id, tags, metadata, revision, created_at, updated_at)
+            VALUES (@PublicId, @Title, @Description, @DocumentTypeId, @DocumentLanguageId, @Tags::jsonb, @Metadata::jsonb, @Revision, @CreatedAt, @UpdatedAt)
             RETURNING id
             """;
 
@@ -40,7 +52,7 @@ internal sealed class DocumentRepository(DbSession session) : RepositoryBase(ses
     {
         const string sql = $"""
             {ResultSet}
-            WHERE public_id = @PublicId
+            WHERE d.public_id = @PublicId
             """;
 
         var connection = await ConnectionAsync(cancellationToken);
@@ -57,12 +69,12 @@ internal sealed class DocumentRepository(DbSession session) : RepositoryBase(ses
     {
         const string sql = $"""
             {ResultSet}
-            WHERE (@Type::text IS NULL OR type = @Type::text)
-              AND (@Language::text IS NULL OR language = @Language::text)
-              AND (@Tag::text IS NULL OR tags @> jsonb_build_array(@Tag::text))
-              AND (@TitlePattern::text IS NULL OR title ILIKE @TitlePattern::text ESCAPE '\')
-              AND (@After::uuid IS NULL OR public_id < @After::uuid)
-            ORDER BY public_id DESC
+            WHERE (@TypeId::uuid IS NULL OR t.public_id = @TypeId::uuid)
+              AND (@LanguageId::uuid IS NULL OR l.public_id = @LanguageId::uuid)
+              AND (@Tag::text IS NULL OR d.tags @> jsonb_build_array(@Tag::text))
+              AND (@TitlePattern::text IS NULL OR d.title ILIKE @TitlePattern::text ESCAPE '\')
+              AND (@After::uuid IS NULL OR d.public_id < @After::uuid)
+            ORDER BY d.public_id DESC
             LIMIT @Limit
             """;
 
@@ -71,8 +83,8 @@ internal sealed class DocumentRepository(DbSession session) : RepositoryBase(ses
             sql,
             new
             {
-                filter.Type,
-                filter.Language,
+                filter.TypeId,
+                filter.LanguageId,
                 filter.Tag,
                 TitlePattern = filter.Title is null ? null : WildcardPattern.ToLikePattern(filter.Title),
                 After = after,
@@ -88,8 +100,8 @@ internal sealed class DocumentRepository(DbSession session) : RepositoryBase(ses
             UPDATE documents
             SET title = @Title
               , description = @Description
-              , type = @Type
-              , language = @Language
+              , document_type_id = @DocumentTypeId
+              , document_language_id = @DocumentLanguageId
               , tags = @Tags::jsonb
               , metadata = @Metadata::jsonb
               , revision = @Revision
@@ -107,8 +119,8 @@ internal sealed class DocumentRepository(DbSession session) : RepositoryBase(ses
                 row.Id,
                 row.Title,
                 row.Description,
-                row.Type,
-                row.Language,
+                row.DocumentTypeId,
+                row.DocumentLanguageId,
                 row.Tags,
                 row.Metadata,
                 row.Revision,

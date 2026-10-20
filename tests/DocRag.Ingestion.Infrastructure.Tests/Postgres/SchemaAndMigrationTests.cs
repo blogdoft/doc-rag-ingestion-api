@@ -32,6 +32,13 @@ public class SchemaAndMigrationTests(InfrastructureFixture infrastructure) : IAs
         return Convert.ToInt64(await command.ExecuteScalarAsync());
     }
 
+    private static async Task<long> InsertDocumentAsync(NpgsqlConnection connection)
+    {
+        var typeId = await InsertAsync(connection, $"INSERT INTO document_types (public_id, name) VALUES ('{NewUuid()}', 't') ON CONFLICT (lower(name)) DO UPDATE SET name = EXCLUDED.name RETURNING id");
+        var languageId = await InsertAsync(connection, $"INSERT INTO document_languages (public_id, code) VALUES ('{NewUuid()}', 'pt-BR') ON CONFLICT (lower(code)) DO UPDATE SET code = EXCLUDED.code RETURNING id");
+        return await InsertAsync(connection, $"INSERT INTO documents (public_id, title, document_type_id, document_language_id) VALUES ('{NewUuid()}', 't', {typeId}, {languageId}) RETURNING id");
+    }
+
     private static string NewUuid() => Guid.CreateVersion7().ToString();
 
     [Fact]
@@ -85,7 +92,7 @@ public class SchemaAndMigrationTests(InfrastructureFixture infrastructure) : IAs
     public async Task Should_RejectDuplicateLabelsInTheSameDocument_When_TheDocumentMatches()
     {
         await using var connection = await OpenAsync();
-        var documentId = await InsertAsync(connection, $"INSERT INTO documents (public_id, title, type, language) VALUES ('{NewUuid()}', 't', 't', 'pt-BR') RETURNING id");
+        var documentId = await InsertDocumentAsync(connection);
         await InsertAsync(connection, $"INSERT INTO document_versions (public_id, document_id, label) VALUES ('{NewUuid()}', {documentId}, '4.00') RETURNING id");
 
         var duplicate = async () => await InsertAsync(connection,
@@ -98,7 +105,7 @@ public class SchemaAndMigrationTests(InfrastructureFixture infrastructure) : IAs
     public async Task Should_RejectInvertedEffectiveRange_When_ConstraintIsEnforcedByTheDatabase()
     {
         await using var connection = await OpenAsync();
-        var documentId = await InsertAsync(connection, $"INSERT INTO documents (public_id, title, type, language) VALUES ('{NewUuid()}', 't', 't', 'pt-BR') RETURNING id");
+        var documentId = await InsertDocumentAsync(connection);
 
         var insert = async () => await InsertAsync(connection,
             $"INSERT INTO document_versions (public_id, document_id, label, effective_from, effective_to) VALUES ('{NewUuid()}', {documentId}, '1', now(), now() - interval '1 day') RETURNING id");
@@ -110,7 +117,7 @@ public class SchemaAndMigrationTests(InfrastructureFixture infrastructure) : IAs
     public async Task Should_AllowOnlyOneStoredFileAndOneActiveAttemptPerVersion_When_ConstraintsAreEnforced()
     {
         await using var connection = await OpenAsync();
-        var documentId = await InsertAsync(connection, $"INSERT INTO documents (public_id, title, type, language) VALUES ('{NewUuid()}', 't', 't', 'pt-BR') RETURNING id");
+        var documentId = await InsertDocumentAsync(connection);
         var versionId = await InsertAsync(connection, $"INSERT INTO document_versions (public_id, document_id, label) VALUES ('{NewUuid()}', {documentId}, '1') RETURNING id");
         string File() => $"INSERT INTO document_files (public_id, document_version_id, original_name, content_type, size_bytes, sha256, bucket, object_key, uploaded_at) VALUES ('{NewUuid()}', {versionId}, 'f', 'application/pdf', 1, '{new string('a', 64)}', 'b', 'k{NewUuid()}', now()) RETURNING id";
         string Attempt() => $"INSERT INTO upload_attempts (public_id, document_version_id, file_id, status, temporary_object_key, lease_expires_at) VALUES ('{NewUuid()}', {versionId}, '{NewUuid()}', 'active', 'k', now()) RETURNING id";

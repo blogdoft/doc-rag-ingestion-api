@@ -82,7 +82,7 @@ public class AuthenticationTests : IClassFixture<ApiFactory>
     {
         var client = Client(TestTokens.Create(scope: "ingestion:read"));
 
-        var response = await client.PostAsJsonAsync("/api/v1/documents", new { title = "t", type = "t", language = "pt-BR" });
+        var response = await client.PostAsJsonAsync("/api/v1/documents", new { title = "t", typeId = Guid.NewGuid(), languageId = Guid.NewGuid() });
 
         response.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
     }
